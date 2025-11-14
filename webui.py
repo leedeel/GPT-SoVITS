@@ -182,6 +182,8 @@ def check_pretrained_is_exist(version):
 
 
 check_pretrained_is_exist(version)
+
+
 for key in pretrained_sovits_name.keys():
     if os.path.exists(pretrained_sovits_name[key]) == False:
         pretrained_sovits_name[key] = ""
@@ -1637,14 +1639,20 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
 
             pretrained_s2G.change(sync, [pretrained_s2G], [pretrained_s2G_])
             open_asr_button.click(
-                open_asr,
-                [asr_inp_dir, asr_opt_dir, asr_model, asr_size, asr_lang, asr_precision],
-                [asr_info, open_asr_button, close_asr_button, path_list, inp_text, inp_wav_dir],
+                fn=open_asr,
+                inputs=[asr_inp_dir, asr_opt_dir, asr_model, asr_size, asr_lang, asr_precision],
+                outputs=[asr_info, open_asr_button, close_asr_button, path_list, inp_text, inp_wav_dir],
+                api_name="open_asr"
             )
-            close_asr_button.click(close_asr, [], [asr_info, open_asr_button, close_asr_button])
+            close_asr_button.click(
+                fn=close_asr, 
+                inputs=[], 
+                outputs=[asr_info, open_asr_button, close_asr_button],
+                api_name="close_asr"
+            )
             open_slicer_button.click(
-                open_slice,
-                [
+                fn=open_slice,
+                inputs=[
                     slice_inp_path,
                     slice_opt_root,
                     threshold,
@@ -1656,37 +1664,70 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
                     alpha,
                     n_process,
                 ],
-                [slicer_info, open_slicer_button, close_slicer_button, asr_inp_dir, denoise_input_dir, inp_wav_dir],
+                outputs=[slicer_info, open_slicer_button, close_slicer_button, asr_inp_dir, denoise_input_dir, inp_wav_dir],
+                api_name="open_slicer"
             )
-            close_slicer_button.click(close_slice, [], [slicer_info, open_slicer_button, close_slicer_button])
+            close_slicer_button.click(
+                fn=close_slice, 
+                inputs=[], 
+                outputs=[slicer_info, open_slicer_button, close_slicer_button],
+                api_name="close_slicer"
+            )
             open_denoise_button.click(
-                open_denoise,
-                [denoise_input_dir, denoise_output_dir],
-                [denoise_info, open_denoise_button, close_denoise_button, asr_inp_dir, inp_wav_dir],
+                fn=open_denoise,
+                inputs=[denoise_input_dir, denoise_output_dir],
+                outputs=[denoise_info, open_denoise_button, close_denoise_button, asr_inp_dir, inp_wav_dir],
+                api_name="open_denoise"
             )
-            close_denoise_button.click(close_denoise, [], [denoise_info, open_denoise_button, close_denoise_button])
-
+            close_denoise_button.click(
+                fn=close_denoise, 
+                inputs=[], 
+                outputs=[denoise_info, open_denoise_button, close_denoise_button],
+                api_name="close_denoise"
+            )
+            # 开关文本分词与特征提取（Text Feature Extraction）
             button1a_open.click(
-                open1a,
-                [inp_text, inp_wav_dir, exp_name, gpu_numbers1a, bert_pretrained_dir],
-                [info1a, button1a_open, button1a_close],
+                fn=open1a,
+                inputs=[inp_text, inp_wav_dir, exp_name, gpu_numbers1a, bert_pretrained_dir],
+                outputs=[info1a, button1a_open, button1a_close],
+                api_name="open_tfe"
             )
-            button1a_close.click(close1a, [], [info1a, button1a_open, button1a_close])
+            button1a_close.click(
+                fn=close1a, 
+                inputs=[], 
+                outputs=[info1a, button1a_open, button1a_close],
+                api_name="close_tfe"
+            )
+            # 开关语音自监督特征提取（Speech Feature Extraction）
             button1b_open.click(
-                open1b,
-                [version_checkbox, inp_text, inp_wav_dir, exp_name, gpu_numbers1Ba, cnhubert_base_dir],
-                [info1b, button1b_open, button1b_close],
+                fn=open1b,
+                inputs=[version_checkbox, inp_text, inp_wav_dir, exp_name, gpu_numbers1Ba, cnhubert_base_dir],
+                outputs=[info1b, button1b_open, button1b_close],
+                api_name="open_sfe"
             )
-            button1b_close.click(close1b, [], [info1b, button1b_open, button1b_close])
+            button1b_close.click(
+                fn=close1b, 
+                inputs=[], 
+                outputs=[info1b, button1b_open, button1b_close],
+                api_name="close_sfe"
+            )
+            # 开关语义Token提取（Semantic Token Extraction）
             button1c_open.click(
-                open1c,
-                [version_checkbox, inp_text, inp_wav_dir, exp_name, gpu_numbers1c, pretrained_s2G],
-                [info1c, button1c_open, button1c_close],
+                fn=open1c,
+                inputs=[version_checkbox, inp_text, inp_wav_dir, exp_name, gpu_numbers1c, pretrained_s2G],
+                outputs=[info1c, button1c_open, button1c_close],
+                api_name="open_ste"
             )
-            button1c_close.click(close1c, [], [info1c, button1c_open, button1c_close])
+            button1c_close.click(
+                fn=close1c, 
+                inputs=[], 
+                outputs=[info1c, button1c_open, button1c_close],
+                api_name="close_ste"
+            )
+            # 一键开关1abc
             button1abc_open.click(
-                open1abc,
-                [
+                fn=open1abc,
+                inputs=[
                     version_checkbox,
                     inp_text,
                     inp_wav_dir,
@@ -1698,9 +1739,15 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
                     cnhubert_base_dir,
                     pretrained_s2G,
                 ],
-                [info1abc, button1abc_open, button1abc_close],
+                outputs=[info1abc, button1abc_open, button1abc_close],
+                api_name="open_tfe_sfe_ste"
             )
-            button1abc_close.click(close1abc, [], [info1abc, button1abc_open, button1abc_close])
+            button1abc_close.click(
+                fn=close1abc, 
+                inputs=[], 
+                outputs=[info1abc, button1abc_open, button1abc_close],
+                api_name="close_tfe_sfe_ste"
+            )
 
             with gr.TabItem("1B-" + i18n("微调训练")):
                 with gr.Accordion(label="1Ba-" + i18n("SoVITS 训练: 模型权重文件在 SoVITS_weights/")):
@@ -1849,8 +1896,18 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
                         with gr.Row():
                             info1Bb = gr.Textbox(label=process_info(process_name_gpt, "info"))
 
-            button1Ba_close.click(close1Ba, [], [info1Ba, button1Ba_open, button1Ba_close])
-            button1Bb_close.click(close1Bb, [], [info1Bb, button1Bb_open, button1Bb_close])
+            button1Ba_close.click(
+                fn=close1Ba, 
+                inputs=[], 
+                outputs=[info1Ba, button1Ba_open, button1Ba_close],
+                api_name="close_sovits"
+            )
+            button1Bb_close.click(
+                fn=close1Bb, 
+                inputs=[], 
+                outputs=[info1Bb, button1Bb_open, button1Bb_close],
+                api_name="close_gpt"
+            )
 
             with gr.TabItem("1C-" + i18n("推理")):
                 gr.Markdown(
@@ -1918,8 +1975,8 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
                         [tts_info, open_tts, close_tts],
                     )
             button1Ba_open.click(
-                open1Ba,
-                [
+                fn=open1Ba,
+                inputs=[
                     version_checkbox,
                     batch_size,
                     total_epoch,
@@ -1934,11 +1991,12 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
                     if_grad_ckpt,
                     lora_rank,
                 ],
-                [info1Ba, button1Ba_open, button1Ba_close, SoVITS_dropdown, GPT_dropdown],
+                outputs=[info1Ba, button1Ba_open, button1Ba_close, SoVITS_dropdown, GPT_dropdown],
+                api_name="open_sovits"
             )
             button1Bb_open.click(
-                open1Bb,
-                [
+                fn=open1Bb,
+                inputs=[
                     batch_size1Bb,
                     total_epoch1Bb,
                     exp_name,
@@ -1949,12 +2007,13 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
                     gpu_numbers1Bb,
                     pretrained_s1,
                 ],
-                [info1Bb, button1Bb_open, button1Bb_close, SoVITS_dropdown, GPT_dropdown],
+                outputs=[info1Bb, button1Bb_open, button1Bb_close, SoVITS_dropdown, GPT_dropdown],
+                api_name="open_gpt"
             )
             version_checkbox.change(
-                switch_version,
-                [version_checkbox],
-                [
+                fn=switch_version,
+                inputs=[version_checkbox],
+                outputs=[
                     pretrained_s2G,
                     pretrained_s2D,
                     pretrained_s1,
@@ -1968,6 +2027,7 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
                     batched_infer_enabled,
                     lora_rank,
                 ],
+                api_name="switch_version"
             )
 
         with gr.TabItem(i18n("2-GPT-SoVITS-变声")):
