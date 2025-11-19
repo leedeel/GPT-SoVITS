@@ -75,7 +75,6 @@ from config import (
     exp_root,
     infer_device,
     is_half,
-    is_share,
     memset,
     python_exec,
     webui_port_infer_tts,

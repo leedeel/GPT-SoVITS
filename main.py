@@ -1,6 +1,8 @@
 from config import (
+    is_share,
     webui_port_main
 )
+import gradio as gr
 from webui import create_webui_app
 from interface_model import create_model_app
 

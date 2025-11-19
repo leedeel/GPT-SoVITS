@@ -1,0 +1,1 @@
+bash docker_build.sh --cuda 12.6 --lite
