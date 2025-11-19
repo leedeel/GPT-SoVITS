@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 import io
 import base64
-from GPT_SoVITS.interface_webui import get_tts_wav
+from api import get_tts_wav  # 延迟导入，避免循环依赖
 
 # 假设这些全局变量和函数已经在其他地方定义
 # from your_module import cache, device, hps, ssl_model, vq_model, t2s_model, etc.
@@ -87,8 +87,7 @@ def get_tts_wav_api(
         else:
             # 如果是文件路径
             ref_wav_path = ref_wav_file
-        
-        # 调用原始函数（需要确保原始函数可用）
+                
         # 这里我们重构处理逻辑，但保持核心算法
         opt_sr, audio_data = get_tts_wav(
             ref_wav_path=ref_wav_path,
@@ -96,13 +95,13 @@ def get_tts_wav_api(
             prompt_language=prompt_language,
             text=text,
             text_language=text_language,
-            how_to_cut=how_to_cut,
+            # how_to_cut=how_to_cut,
             top_k=top_k,
             top_p=top_p,
             temperature=temperature,
-            ref_free=ref_free,
+            # ref_free=ref_free,
             speed=speed,
-            if_freeze=if_freeze,
+            # if_freeze=if_freeze,
             inp_refs=inp_refs,
             sample_steps=sample_steps,
             if_sr=if_sr,
@@ -113,7 +112,7 @@ def get_tts_wav_api(
         if isinstance(ref_wav_file, tuple) and os.path.exists(ref_wav_path):
             os.remove(ref_wav_path)
         
-        return {
+        return audio_data, {
             "status": "success",
             "message": "音频生成成功",
             "audio": (opt_sr, audio_data),
@@ -124,7 +123,7 @@ def get_tts_wav_api(
         }
         
     except Exception as e:
-        return {
+        return None,{
             "status": "error",
             "message": f"音频生成失败: {str(e)}",
             "audio": None,
@@ -194,13 +193,11 @@ def create_tts_app():
         inputs=[
             gr.Audio(
                 label="参考音频",
-                type="filepath",
-                info="上传参考语音文件，建议3-10秒"
+                type="filepath"
             ),
             gr.Textbox(
                 label="提示文本",
                 placeholder="请输入参考音频对应的文本...",
-                info="参考音频的转录文本"
             ),
             gr.Dropdown(
                 choices=language_choices,
@@ -211,7 +208,6 @@ def create_tts_app():
                 label="目标文本", 
                 placeholder="请输入要合成的文本...",
                 lines=3,
-                info="需要转换为语音的文本内容"
             ),
             gr.Dropdown(
                 choices=language_choices,
@@ -222,31 +218,27 @@ def create_tts_app():
                 choices=cut_method_choices,
                 label="文本切割方式",
                 value="不切",
-                info="长文本的切割处理方式"
             ),
             gr.Slider(
                 minimum=1,
                 maximum=100,
                 value=20,
                 step=1,
-                label="Top-K",
-                info="采样时的top-k参数"
+                label="采样时的top-k参数"
             ),
             gr.Slider(
                 minimum=0.1,
                 maximum=1.0,
                 value=0.6,
                 step=0.1,
-                label="Top-P",
-                info="采样时的top-p参数"
+                label="采样时的top-p参数",
             ),
             gr.Slider(
                 minimum=0.1,
                 maximum=2.0,
                 value=0.6,
                 step=0.1,
-                label="Temperature",
-                info="采样温度"
+                label="采样温度",
             ),
             gr.Checkbox(
                 label="无参考模式",
@@ -259,7 +251,6 @@ def create_tts_app():
                 value=1.0,
                 step=0.1,
                 label="语速",
-                info="语音合成速度"
             ),
             gr.Checkbox(
                 label="冻结缓存",
@@ -269,16 +260,14 @@ def create_tts_app():
             gr.File(
                 label="额外参考文件",
                 file_count="multiple",
-                optional=True,
-                info="可选的额外参考音频文件"
+                visible=False
             ),
             gr.Slider(
                 minimum=1,
                 maximum=20,
                 value=8,
                 step=1,
-                label="采样步数",
-                info="CFM采样步数"
+                label="CFM采样步数",
             ),
             gr.Checkbox(
                 label="超分辨率",
@@ -290,8 +279,7 @@ def create_tts_app():
                 maximum=1.0,
                 value=0.3,
                 step=0.1,
-                label="停顿时间",
-                info="句子间的停顿时间（秒）"
+                label="句子间的停顿时间（秒）",
             )
         ],
         outputs=[
@@ -300,16 +288,6 @@ def create_tts_app():
         ],
         title="GPT-SoVITS TTS API 服务",
         description="文本到语音合成 API 接口，支持多语言和声音克隆",
-        examples=[
-            [
-                "example_ref.wav",  # 需要实际示例文件
-                "这是一个示例参考文本",
-                "中文", 
-                "这是通过API生成的语音示例",
-                "中文",
-                "不切", 20, 0.6, 0.6, False, 1.0, False, None, 8, False, 0.3
-            ]
-        ],
         api_name="tts_generate"
     )
     
@@ -417,7 +395,6 @@ def create_batch_tts_api():
                 label="批量文本",
                 placeholder='["文本1", "文本2", ...] 或 每行一个文本',
                 lines=5,
-                info="支持JSON数组或每行一个文本"
             ),
             gr.Dropdown(
                 choices=["中文", "英文", "日文"],
