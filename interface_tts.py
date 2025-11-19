@@ -9,10 +9,8 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 import io
 import base64
-from GPT_SoVITS.interface_webui import get_tts_wav
+from GPT_SoVITS.inference_webui import get_tts_wav
 
-# 假设这些全局变量和函数已经在其他地方定义
-# from your_module import cache, device, hps, ssl_model, vq_model, t2s_model, etc.
 
 def get_tts_wav_api(
     ref_wav_file: gr.Audio,  # 改为接受 gradio Audio 类型

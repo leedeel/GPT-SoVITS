@@ -23,17 +23,17 @@ logging.getLogger("h5py").setLevel(logging.INFO)
 logging.getLogger("numba").setLevel(logging.INFO)
 from random import randint
 
-from module import commons
-from module.data_utils import (
+from GPT_SoVITS.module import commons
+from GPT_SoVITS.module.data_utils import (
     DistributedBucketSampler,
 )
-from module.data_utils import (
+from GPT_SoVITS.module.data_utils import (
     TextAudioSpeakerCollateV3 as TextAudioSpeakerCollate,
 )
-from module.data_utils import (
+from GPT_SoVITS.module.data_utils import (
     TextAudioSpeakerLoaderV3 as TextAudioSpeakerLoader,
 )
-from module.models import (
+from GPT_SoVITS.module.models import (
     SynthesizerTrnV3 as SynthesizerTrn,
 )
 from process_ckpt import savee

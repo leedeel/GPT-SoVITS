@@ -21,11 +21,11 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import yaml
-from AR.models.t2s_lightning_module import Text2SemanticLightningModule
+from GPT_SoVITS.AR.models.t2s_lightning_module import Text2SemanticLightningModule
 from BigVGAN.bigvgan import BigVGAN
 from feature_extractor.cnhubert import CNHubert
-from module.mel_processing import mel_spectrogram_torch, spectrogram_torch
-from module.models import SynthesizerTrn, SynthesizerTrnV3, Generator
+from GPT_SoVITS.module.mel_processing import mel_spectrogram_torch, spectrogram_torch
+from GPT_SoVITS.module.models import SynthesizerTrn, SynthesizerTrnV3, Generator
 from peft import LoraConfig, get_peft_model
 from process_ckpt import get_sovits_version_from_path_fast, load_sovits_new
 from transformers import AutoModelForMaskedLM, AutoTokenizer
