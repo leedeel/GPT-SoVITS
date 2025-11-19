@@ -9,20 +9,12 @@ def create_model_app():
     def list_models():
         SoVITS_names, GPT_names = get_weights_names()
         return {"SoVITS": SoVITS_names, "GPT": GPT_names}
-    
-    def refresh_models():
-        SoVITS_names, GPT_names = change_choices()
-        return {"status": "refreshed", "SoVITS": SoVITS_names, "GPT": GPT_names}
-    
-    with gr.Blocks() as model_app:
+   
+    with gr.Blocks(title="GPT-SoVITS模型API服务", theme=gr.themes.Soft()) as model_app:
         gr.Markdown("## 🤖 模型管理")
-        
         with gr.Row():
             list_btn = gr.Button("列出模型")
-            refresh_btn = gr.Button("刷新列表")
             output = gr.JSON()
-        
-        list_btn.click(list_models, outputs=output, api_name="model_list")
-        refresh_btn.click(refresh_models, outputs=output, api_name="model_refresh")
+        list_btn.click(fn=list_models, outputs=output, api_name="model_list")
     
     return model_app

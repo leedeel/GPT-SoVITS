@@ -74,6 +74,7 @@ from config import (
     IS_GPU,
     exp_root,
     infer_device,
+    is_share,
     is_half,
     memset,
     python_exec,

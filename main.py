@@ -5,6 +5,7 @@ from config import (
 import gradio as gr
 from webui import create_webui_app
 from interface_model import create_model_app
+from interface_tts import create_tts_app
 
 
 # ===== 主应用: 组合所有模块 =====
@@ -14,11 +15,12 @@ def create_main_app():
     # 创建各个模块
     webui_module = create_webui_app()
     model_module = create_model_app()
+    tts_module = create_tts_app()
     
     # 使用 TabbedInterface 组合
     main_app = gr.TabbedInterface(
-        [webui_module, model_module],
-        ["页面流程处理", "模型管理"],
+        [webui_module, model_module,tts_module],
+        ["页面流程处理", "GPT-SoVITS模型API服务","GPT-SoVITS TTS API服务"],
         title="模块化应用集合"
     )
     
