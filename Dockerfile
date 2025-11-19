@@ -34,6 +34,12 @@ COPY requirements.txt /workspace/GPT-SoVITS/
 
 COPY install.sh /workspace/GPT-SoVITS/
 
+# 接受 Conda 服务条款
+RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+
+ENV TERM=xterm
+
 RUN bash Docker/install_wrapper.sh
 
 EXPOSE 9871 9872 9873 9874 9880

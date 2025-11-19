@@ -1,0 +1,39 @@
+version: '3.8'
+services:
+  gpt-sovits-local:
+    image: woodlli/gpt-sovits:local
+    container_name: gpt-sovits-local
+    environment:
+      - is_half=True
+    command:
+      - python
+      - webui.py
+      - zh_CN
+    volumes:
+      - /mnt/d/work/sovits/output:/workspace/output
+      - /mnt/d/work/sovits/logs:/workspace/GPT-SoVITS/logs
+      - /mnt/d/work/sovits/SoVITS_weights_v2ProPlus:/workspace/GPT-SoVITS/SoVITS_weights_v2ProPlus
+      - /mnt/d/work/sovits/GPT_weights_v2ProPlus:/workspace/GPT-SoVITS/GPT_weights_v2ProPlus
+      - /mnt/d/work/sovits/movie_fpn:/workspace/movie_fpn
+      - /mnt/d/work/sovits/models/asr:/workspace/GPT-SoVITS/tools/asr/models
+      - /mnt/d/work/sovits/models/G2PWModel:/workspace/GPT-SoVITS/GPT_SoVITS/text/G2PWModel
+      - /mnt/d/work/project/GPT-SoVITS:/workspace/GPT-SoVITS/GPT_SoVITS/pretrained_models
+      - /mnt/d/work/project/VoiceConversionWebUI/uvr5_weights:/workspace/GPT-SoVITS/tools/uvr5/uvr5_weights
+    working_dir: /workspace/GPT-SoVITS
+    ports:
+      - "9880:9880"
+      - "9871:9871"
+      - "9872:9872"
+      - "9873:9873"
+      - "9874:9874"
+    shm_size: 16G
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: "all"
+            capabilities: [gpu]
+    stdin_open: true
+    tty: true
+    restart: unless-stopped

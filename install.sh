@@ -345,9 +345,9 @@ echo -e "${INFO}Installing Python Dependencies From requirements.txt..."
 
 hash -r
 
-run_pip_quiet -r extra-req.txt --no-deps
+run_pip_quiet -r extra-req.txt --no-deps -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-run_pip_quiet -r requirements.txt
+run_pip_quiet -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 echo -e "${SUCCESS}Python Dependencies Installed"
 
