@@ -8,9 +8,9 @@ from torch.nn import functional as F
 from torch.nn import Conv1d
 from torch.nn.utils import weight_norm, remove_weight_norm
 
-from module import commons
-from module.commons import init_weights, get_padding
-from module.transforms import piecewise_rational_quadratic_transform
+from GPT_SoVITS.module import commons
+from GPT_SoVITS.module.commons import init_weights, get_padding
+from GPT_SoVITS.module.transforms import piecewise_rational_quadratic_transform
 import torch.distributions as D
 
 
@@ -594,7 +594,7 @@ class ConvNorm(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    """Multi-Head Attention module"""
+    """Multi-Head Attention GPT_SoVITS.module"""
 
     def __init__(self, n_head, d_model, d_k, d_v, dropout=0.0, spectral_norm=False):
         super().__init__()
