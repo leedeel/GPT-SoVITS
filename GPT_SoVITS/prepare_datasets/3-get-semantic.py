@@ -38,9 +38,9 @@ import logging
 import utils
 
 if version != "v3":
-    from GPT_SoVITS.module.models import SynthesizerTrn
+    from module.models import SynthesizerTrn
 else:
-    from GPT_SoVITS.module.models import SynthesizerTrnV3 as SynthesizerTrn
+    from module.models import SynthesizerTrnV3 as SynthesizerTrn
 from tools.my_utils import clean_path
 
 logging.getLogger("numba").setLevel(logging.WARNING)

@@ -336,7 +336,7 @@ def change_tts_inference(bert_path, cnhubert_base_path, gpu_number, gpt_path, so
     if batched_infer_enabled:
         cmd = '"%s" -s GPT_SoVITS/inference_webui_fast.py "%s"' % (python_exec, language)
     else:
-        cmd = '"%s" -s GPT_SoVITS/inference_webui.py "%s"' % (python_exec, language) 
+        cmd = '"%s" -s GPT_SoVITS/inference_webui.py "%s"' % (python_exec, language)
     # #####v3暂不支持加速推理
     # if version=="v3":
     #     cmd = '"%s" GPT_SoVITS/inference_webui.py "%s"'%(python_exec, language)

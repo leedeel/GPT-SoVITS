@@ -9,17 +9,17 @@
 import psutil
 import os
 
-# def set_high_priority():
-#     """把当前 Python 进程设为 HIGH_PRIORITY_CLASS"""
-#     if os.name != "nt":
-#         return # 仅 Windows 有效
-#     p = psutil.Process(os.getpid())
-#     try:
-#         p.nice(psutil.HIGH_PRIORITY_CLASS)
-#         print("已将进程优先级设为 High")
-#     except psutil.AccessDenied:
-#         print("权限不足，无法修改优先级（请用管理员运行）")
-# set_high_priority()
+def set_high_priority():
+    """把当前 Python 进程设为 HIGH_PRIORITY_CLASS"""
+    if os.name != "nt":
+        return # 仅 Windows 有效
+    p = psutil.Process(os.getpid())
+    try:
+        p.nice(psutil.HIGH_PRIORITY_CLASS)
+        print("已将进程优先级设为 High")
+    except psutil.AccessDenied:
+        print("权限不足，无法修改优先级（请用管理员运行）")
+set_high_priority()
 import json
 import logging
 import os
@@ -30,7 +30,7 @@ import warnings
 
 import torch
 import torchaudio
-from GPT_SoVITS.text.LangSegmenter import LangSegmenter
+from text.LangSegmenter import LangSegmenter
 
 logging.getLogger("markdown_it").setLevel(logging.ERROR)
 logging.getLogger("urllib3").setLevel(logging.ERROR)
@@ -93,7 +93,7 @@ punctuation = set(["!", "?", "…", ",", ".", "-", " "])
 import gradio as gr
 import librosa
 import numpy as np
-from GPT_SoVITS.feature_extractor import cnhubert
+from feature_extractor import cnhubert
 from transformers import AutoModelForMaskedLM, AutoTokenizer
 
 cnhubert.cnhubert_base_path = cnhubert_base_path
@@ -118,10 +118,10 @@ def set_seed(seed):
 
 from time import time as ttime
 
-from GPT_SoVITS.AR.models.t2s_lightning_module import Text2SemanticLightningModule
+from AR.models.t2s_lightning_module import Text2SemanticLightningModule
 from peft import LoraConfig, get_peft_model
-from GPT_SoVITS.text import cleaned_text_to_sequence
-from GPT_SoVITS.text.cleaner import clean_text
+from text import cleaned_text_to_sequence
+from text.cleaner import clean_text
 
 from tools.assets import css, js, top_html
 from tools.i18n.i18n import I18nAuto, scan_language_list
@@ -595,7 +595,7 @@ def get_first(text):
     return text
 
 
-from GPT_SoVITS.text import chinese
+from text import chinese
 
 
 def get_phones_and_bert(text, language, version, final=False):
@@ -667,7 +667,7 @@ def get_phones_and_bert(text, language, version, final=False):
     return phones, bert.to(dtype), norm_text
 
 
-from GPT_SoVITS.module.mel_processing import mel_spectrogram_torch, spectrogram_torch
+from module.mel_processing import mel_spectrogram_torch, spectrogram_torch
 
 spec_min = -12
 spec_max = 2
