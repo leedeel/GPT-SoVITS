@@ -9,8 +9,11 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 import io
 import base64
-from GPT_SoVITS.inference_webui import get_tts_wav
+import sys
 
+now_dir = os.getcwd()
+sys.path.append(now_dir)
+sys.path.append("%s/GPT_SoVITS" % (now_dir))
 
 def get_tts_wav_api(
     ref_wav_file: gr.Audio,  # 改为接受 gradio Audio 类型
@@ -85,7 +88,8 @@ def get_tts_wav_api(
         else:
             # 如果是文件路径
             ref_wav_path = ref_wav_file
-                
+        
+        from GPT_SoVITS.inference_webui import get_tts_wav
         # 这里我们重构处理逻辑，但保持核心算法
         opt_sr, audio_data = get_tts_wav(
             ref_wav_path=ref_wav_path,

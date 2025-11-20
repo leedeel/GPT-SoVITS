@@ -3,8 +3,6 @@ echo -e "${INFO}Download Model From HuggingFace-Mirror"
 PRETRINED_URL="https://hf-mirror.com/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/pretrained_models.zip"
 G2PW_URL="https://hf-mirror.com/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/G2PWModel.zip"
 UVR5_URL="https://hf-mirror.com/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/uvr5_weights.zip"
-NLTK_URL="https://hf-mirror.com/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/nltk_data.zip"
-PYOPENJTALK_URL="https://hf-mirror.com/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/open_jtalk_dic_utf_8-1.11.tar.gz"
 FUN_ASR_URL="https://cvws.icloud-content.com/B/AXBceAVMuVklfTrAtRBssiar-Xi9Aba7AUBt6R62PK45_MDIBtdk6mm4/models.zip?o=As2GIKdmUuj6RnHNCDMfbmfZUoenpmEdcXZYXinGfYaO&v=1&x=3&a=CAogs1WUqCw8fFbdcZdI9tPOI96o5Cj0rCWZ3eSFW8QJF2oSbxCJ8MD0qTMYic2c9qkzIgEAUgSr-Xi9WgRk6mm4aifN_PU2dUB5c-iJ1ziZXUkg-tDF_n-NmbvYBapb6Qrslpn4KtlUp8hyJ1I8CNDC6lqvMJuOHelPz_4PN0xiEPBP-D5uw0DM7KfLDZkBlHYIuw&e=1763600443&fl=&r=78a8e895-bf87-4cfd-805e-49bad4cb20df-1&k=ViRer5obYscfo1Ic510s8g&ckc=com.apple.clouddocs&ckz=com.apple.CloudDocs&p=104&s=tlwf84XHXe77B7jfXMknqkm5jAk&+=25f1faaf-4821-44d1-8462-ddc834a8b9f8"
 
 BASE_DIR="models"

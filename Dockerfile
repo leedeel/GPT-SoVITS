@@ -55,3 +55,5 @@ RUN rm -rf /workspace/GPT-SoVITS
 WORKDIR /workspace/GPT-SoVITS
 
 COPY . /workspace/GPT-SoVITS
+
+RUN rm -rf /workspace/models
