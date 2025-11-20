@@ -15,6 +15,9 @@ now_dir = os.getcwd()
 sys.path.append(now_dir)
 sys.path.append("%s/GPT_SoVITS" % (now_dir))
 
+from GPT_SoVITS.inference_webui import (get_tts_wav,i18n)
+
+
 def get_tts_wav_api(
     ref_wav_file: gr.Audio,  # 改为接受 gradio Audio 类型
     prompt_text: str,
@@ -89,9 +92,8 @@ def get_tts_wav_api(
             # 如果是文件路径
             ref_wav_path = ref_wav_file
         
-        from GPT_SoVITS.inference_webui import get_tts_wav
         # 这里我们重构处理逻辑，但保持核心算法
-        opt_sr,audio_data = get_tts_wav(
+        opt_sr,audio_data = next(get_tts_wav(
             ref_wav_path=ref_wav_path,
             prompt_text=prompt_text,
             prompt_language=prompt_language,
@@ -108,15 +110,18 @@ def get_tts_wav_api(
             sample_steps=sample_steps,
             if_sr=if_sr,
             pause_second=pause_second
-        )
+        ))
         
         # 清理临时文件
         if isinstance(ref_wav_file, tuple) and os.path.exists(ref_wav_path):
             os.remove(ref_wav_path)
         
-        return audio_data, {
+        return (opt_sr,audio_data), {
             "status": "success",
             "message": "音频生成成功",
+            "sample_rate": opt_sr,
+            "audio_duration": len(audio_data) / opt_sr,
+            "text_processed": text,
             "text_processed": text
         }
         
@@ -280,7 +285,7 @@ def create_tts_app():
             )
         ],
         outputs=[
-            gr.Audio(label="生成音频", type="numpy"),
+            gr.Audio(label="生成音频",scale=12),
             gr.JSON(label="生成信息")
         ],
         title="GPT-SoVITS TTS API 服务",
