@@ -13,14 +13,14 @@ def create_main_app():
     """创建主应用，组合所有模块"""
     
     # 创建各个模块
-    webui_module = create_webui_app()
+    # webui_module = create_webui_app()
     model_module = create_model_app()
     tts_module = create_tts_app()
     
     # 使用 TabbedInterface 组合
     main_app = gr.TabbedInterface(
-        [webui_module, model_module,tts_module],
-        ["页面流程处理", "GPT-SoVITS模型API服务","GPT-SoVITS TTS API服务"],
+        [model_module,tts_module],
+        ["GPT-SoVITS模型API服务","GPT-SoVITS TTS API服务"],
         title="模块化应用集合"
     )
     

@@ -91,7 +91,7 @@ def get_tts_wav_api(
         
         from GPT_SoVITS.inference_webui import get_tts_wav
         # 这里我们重构处理逻辑，但保持核心算法
-        opt_sr, audio_data = get_tts_wav(
+        opt_sr,audio_data = get_tts_wav(
             ref_wav_path=ref_wav_path,
             prompt_text=prompt_text,
             prompt_language=prompt_language,
@@ -117,11 +117,7 @@ def get_tts_wav_api(
         return audio_data, {
             "status": "success",
             "message": "音频生成成功",
-            "audio": (opt_sr, audio_data),
-            "sample_rate": opt_sr,
-            "audio_duration": len(audio_data) / opt_sr,
-            "text_processed": text,
-            "timestamp": gr.utils.get_current_time()
+            "text_processed": text
         }
         
     except Exception as e:
@@ -129,7 +125,6 @@ def get_tts_wav_api(
             "status": "error",
             "message": f"音频生成失败: {str(e)}",
             "audio": None,
-            "sample_rate": None,
             "traceback": traceback.format_exc()
         }
 
@@ -378,15 +373,13 @@ def create_batch_tts_api():
             return {
                 "status": "success",
                 "total": len(results),
-                "results": results,
-                "timestamp": gr.utils.get_current_time()
+                "results": results
             }
             
         except Exception as e:
             return {
                 "status": "error",
-                "message": f"批量处理失败: {str(e)}",
-                "timestamp": gr.utils.get_current_time()
+                "message": f"批量处理失败: {str(e)}"
             }
     
     batch_interface = gr.Interface(
