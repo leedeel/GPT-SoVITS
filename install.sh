@@ -229,69 +229,6 @@ echo -e "${INFO}Installing unzip..."
 run_conda_quiet unzip
 echo -e "${SUCCESS}unzip Installed"
 
-if [ "$USE_HF" = "true" ]; then
-    echo -e "${INFO}Download Model From HuggingFace"
-    PRETRINED_URL="https://huggingface.co/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/pretrained_models.zip"
-    G2PW_URL="https://huggingface.co/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/G2PWModel.zip"
-    UVR5_URL="https://huggingface.co/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/uvr5_weights.zip"
-    NLTK_URL="https://huggingface.co/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/nltk_data.zip"
-    PYOPENJTALK_URL="https://huggingface.co/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/open_jtalk_dic_utf_8-1.11.tar.gz"
-elif [ "$USE_HF_MIRROR" = "true" ]; then
-    echo -e "${INFO}Download Model From HuggingFace-Mirror"
-    PRETRINED_URL="https://hf-mirror.com/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/pretrained_models.zip"
-    G2PW_URL="https://hf-mirror.com/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/G2PWModel.zip"
-    UVR5_URL="https://hf-mirror.com/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/uvr5_weights.zip"
-    NLTK_URL="https://hf-mirror.com/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/nltk_data.zip"
-    PYOPENJTALK_URL="https://hf-mirror.com/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/open_jtalk_dic_utf_8-1.11.tar.gz"
-elif [ "$USE_MODELSCOPE" = "true" ]; then
-    echo -e "${INFO}Download Model From ModelScope"
-    PRETRINED_URL="https://www.modelscope.cn/models/XXXXRT/GPT-SoVITS-Pretrained/resolve/master/pretrained_models.zip"
-    G2PW_URL="https://www.modelscope.cn/models/XXXXRT/GPT-SoVITS-Pretrained/resolve/master/G2PWModel.zip"
-    UVR5_URL="https://www.modelscope.cn/models/XXXXRT/GPT-SoVITS-Pretrained/resolve/master/uvr5_weights.zip"
-    NLTK_URL="https://www.modelscope.cn/models/XXXXRT/GPT-SoVITS-Pretrained/resolve/master/nltk_data.zip"
-    PYOPENJTALK_URL="https://www.modelscope.cn/models/XXXXRT/GPT-SoVITS-Pretrained/resolve/master/open_jtalk_dic_utf_8-1.11.tar.gz"
-fi
-
-if [ ! -d "GPT_SoVITS/pretrained_models/sv" ]; then
-    echo -e "${INFO}Downloading Pretrained Models..."
-    rm -rf pretrained_models.zip
-    run_wget_quiet "$PRETRINED_URL"
-
-    unzip -q -o pretrained_models.zip -d GPT_SoVITS
-    rm -rf pretrained_models.zip
-    echo -e "${SUCCESS}Pretrained Models Downloaded"
-else
-    echo -e "${INFO}Pretrained Model Exists"
-    echo -e "${INFO}Skip Downloading Pretrained Models"
-fi
-
-if [ ! -d "GPT_SoVITS/text/G2PWModel" ]; then
-    echo -e "${INFO}Downloading G2PWModel.."
-    rm -rf G2PWModel.zip
-    run_wget_quiet "$G2PW_URL"
-
-    unzip -q -o G2PWModel.zip -d GPT_SoVITS/text
-    rm -rf G2PWModel.zip
-    echo -e "${SUCCESS}G2PWModel Downloaded"
-else
-    echo -e "${INFO}G2PWModel Exists"
-    echo -e "${INFO}Skip Downloading G2PWModel"
-fi
-
-if [ "$DOWNLOAD_UVR5" = "true" ]; then
-    if find -L "tools/uvr5/uvr5_weights" -mindepth 1 ! -name '.gitignore' | grep -q .; then
-        echo -e"${INFO}UVR5 Models Exists"
-        echo -e "${INFO}Skip Downloading UVR5 Models"
-    else
-        echo -e "${INFO}Downloading UVR5 Models..."
-        rm -rf uvr5_weights.zip
-        run_wget_quiet "$UVR5_URL"
-
-        unzip -q -o uvr5_weights.zip -d tools/uvr5
-        rm -rf uvr5_weights.zip
-        echo -e "${SUCCESS}UVR5 Models Downloaded"
-    fi
-fi
 
 if [ "$USE_CUDA" = true ] && [ "$WORKFLOW" = false ]; then
     echo -e "${INFO}Checking For Nvidia Driver Installation..."
