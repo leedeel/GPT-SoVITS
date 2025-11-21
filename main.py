@@ -3,9 +3,8 @@ from config import (
     webui_port_main
 )
 import gradio as gr
-from webui import create_webui_app
-from interface_model import create_model_app
-from interface_tts import create_tts_app
+from api_interface.interface_model import create_model_app
+from api_interface.interface_tts import create_tts_app
 
 
 # ===== 主应用: 组合所有模块 =====
@@ -13,7 +12,6 @@ def create_main_app():
     """创建主应用，组合所有模块"""
     
     # 创建各个模块
-    # webui_module = create_webui_app()
     model_module = create_model_app()
     tts_module = create_tts_app()
     

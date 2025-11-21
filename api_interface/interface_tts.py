@@ -15,7 +15,7 @@ now_dir = os.getcwd()
 sys.path.append(now_dir)
 sys.path.append("%s/GPT_SoVITS" % (now_dir))
 
-from GPT_SoVITS.inference_webui import (get_tts_wav,i18n)
+from GPT_SoVITS.inference_webui_fn import (get_tts_wav)
 
 
 def get_tts_wav_api(
@@ -184,6 +184,7 @@ def normalize_audio(audio_data: np.ndarray) -> np.ndarray:
 
 def create_tts_app():
     """创建 TTS API 接口"""
+    #
     
     # 定义语言选项
     language_choices = ["中文", "英文", "日文", "中英混合", "日英混合", "多语种混合"]
@@ -410,182 +411,6 @@ def create_batch_tts_api():
     )
     
     return batch_interface
-
-
-# ===== 创建完整的 API 服务 =====
-
-def create_tts_api_service():
-    """创建完整的 TTS API 服务"""
-    
-    with gr.Blocks(title="GPT-SoVITS TTS API 服务", theme=gr.themes.Soft()) as api_service:
-        
-        gr.Markdown("# 🎙️ GPT-SoVITS TTS API 服务")
-        gr.Markdown("提供完整的文本到语音合成 API 接口，支持声音克隆和多种语言")
-        
-        with gr.Tabs():
-            # 标准 API
-            with gr.TabItem("🔧 标准 TTS API"):
-                tts_interface = create_tts_api_interface()
-                # 这里需要将界面组件添加到 Blocks 中
-                # 由于 Interface 不能直接嵌入，我们需要重新创建组件
-                
-                with gr.Row():
-                    with gr.Column():
-                        gr.Markdown("### 标准 TTS 参数")
-                        ref_audio = gr.Audio(label="参考音频", type="filepath")
-                        prompt_text = gr.Textbox(label="提示文本")
-                        prompt_lang = gr.Dropdown(
-                            choices=["中文", "英文", "日文", "中英混合", "日英混合", "多语种混合"],
-                            label="提示文本语言",
-                            value="中文"
-                        )
-                        target_text = gr.Textbox(label="目标文本", lines=3)
-                        target_lang = gr.Dropdown(
-                            choices=["中文", "英文", "日文", "中英混合", "日英混合", "多语种混合"],
-                            label="目标文本语言", 
-                            value="中文"
-                        )
-                        cut_method = gr.Dropdown(
-                            choices=["不切", "凑四句一切", "凑50字一切", "按中文句号。切", "按英文句号.切", "按标点符号切"],
-                            label="文本切割方式",
-                            value="不切"
-                        )
-                    
-                    with gr.Column():
-                        gr.Markdown("### 高级参数")
-                        top_k = gr.Slider(1, 100, value=20, step=1, label="Top-K")
-                        top_p = gr.Slider(0.1, 1.0, value=0.6, step=0.1, label="Top-P")
-                        temperature = gr.Slider(0.1, 2.0, value=0.6, step=0.1, label="Temperature")
-                        ref_free = gr.Checkbox(label="无参考模式", value=False)
-                        speed = gr.Slider(0.5, 2.0, value=1.0, step=0.1, label="语速")
-                        if_freeze = gr.Checkbox(label="冻结缓存", value=False)
-                        sample_steps = gr.Slider(1, 20, value=8, step=1, label="采样步数")
-                        if_sr = gr.Checkbox(label="超分辨率", value=False)
-                        pause_second = gr.Slider(0.1, 1.0, value=0.3, step=0.1, label="停顿时间")
-                
-                with gr.Row():
-                    submit_btn = gr.Button("生成语音", variant="primary")
-                
-                with gr.Row():
-                    audio_output = gr.Audio(label="生成音频", interactive=False)
-                    json_output = gr.JSON(label="生成信息")
-                
-                # 绑定事件
-                submit_btn.click(
-                    fn=get_tts_wav_api,
-                    inputs=[
-                        ref_audio, prompt_text, prompt_lang, target_text, target_lang,
-                        cut_method, top_k, top_p, temperature, ref_free, speed,
-                        if_freeze, gr.Textbox(visible=False), sample_steps, if_sr, pause_second
-                    ],
-                    outputs=[audio_output, json_output],
-                    api_name="tts_generate"
-                )
-            
-            # 简化 API
-            with gr.TabItem("⚡ 快速 TTS API"):
-                simple_interface = create_simple_tts_api()
-                # 同样需要重新创建简化界面组件...
-            
-            # 批量 API
-            with gr.TabItem("📦 批量 TTS API"):
-                batch_interface = create_batch_tts_api()
-                # 重新创建批量界面组件...
-        
-        # API 文档
-        gr.Markdown("---")
-        gr.Markdown("## 📚 API 文档")
-        gr.Markdown("""
-        ### 标准 TTS API
-        **端点**: `/api/call/tts_generate`
-        
-        **参数**:
-        ```json
-        {
-            "data": [
-                "参考音频文件", 
-                "提示文本", 
-                "提示语言", 
-                "目标文本", 
-                "目标语言",
-                "切割方式",
-                20, 0.6, 0.6, false, 1.0, false, null, 8, false, 0.3
-            ]
-        }
-        ```
-        
-        **返回**:
-        ```json
-        {
-            "status": "success",
-            "audio": "音频数据",
-            "sample_rate": 24000,
-            "audio_duration": 5.2,
-            "text_processed": "处理后的文本"
-        }
-        ```
-        """)
-    
-    return api_service
-
-
-# ===== 客户端调用示例 =====
-
-class TTSAPIClient:
-    """TTS API 客户端"""
-    
-    def __init__(self, base_url: str = "http://localhost:7860"):
-        self.base_url = base_url
-        self.session = requests.Session() if 'requests' in globals() else None
-    
-    def generate_tts(self, audio_file: str, text: str, **kwargs) -> Dict[str, Any]:
-        """
-        生成 TTS 音频
-        
-        Args:
-            audio_file: 参考音频文件路径
-            text: 目标文本
-            **kwargs: 其他参数
-        
-        Returns:
-            Dict: 生成结果
-        """
-        if not self.session:
-            import requests
-            self.session = requests.Session()
-        
-        # 准备参数
-        params = {
-            "data": [
-                audio_file,
-                kwargs.get("prompt_text", ""),
-                kwargs.get("prompt_language", "中文"),
-                text,
-                kwargs.get("text_language", "中文"),
-                kwargs.get("how_to_cut", "不切"),
-                kwargs.get("top_k", 20),
-                kwargs.get("top_p", 0.6),
-                kwargs.get("temperature", 0.6),
-                kwargs.get("ref_free", False),
-                kwargs.get("speed", 1.0),
-                kwargs.get("if_freeze", False),
-                kwargs.get("inp_refs", None),
-                kwargs.get("sample_steps", 8),
-                kwargs.get("if_sr", False),
-                kwargs.get("pause_second", 0.3)
-            ]
-        }
-        
-        try:
-            response = self.session.post(
-                f"{self.base_url}/api/call/tts_generate",
-                json=params,
-                timeout=300  # 5分钟超时
-            )
-            return response.json()
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
 
 # ===== 启动服务 =====
 
