@@ -6,7 +6,7 @@ import gradio as gr
 import torch
 import torchaudio
 from GPT_SoVITS.text.LangSegmenter import LangSegmenter
-from config import (version, is_half, pretrained_sovits_name, cnhubert_path,bert_path)
+from api_interface.config import version, is_half, pretrained_sovits_name, cnhubert_path, bert_path
 import librosa
 import numpy as np
 from GPT_SoVITS.feature_extractor import cnhubert
@@ -482,7 +482,7 @@ def audio_sr(audio, sr):
 
 ##ref_wav_path+prompt_text+prompt_language+text(单个)+text_language+top_k+top_p+temperature
 # cache_tokens={}#暂未实现清理机制
-from GPT_SoVITS.base_model_helper import (clear_all_models,init_model_by_version)
+from GPT_SoVITS.base_model_helper import (clear_all_models,init_model_by_version,get_all_models)
 
 
 def get_tts_wav(
@@ -534,11 +534,16 @@ def get_tts_wav(
     
     cache = {}
     # 加载SoVITS模型权重
-    ( version, model_version,if_lora_v3,vq_model,hps) = next(change_sovits_weights(sovits_path))
+    ( version, model_version, if_lora_v3, vq_model, hps) = next(change_sovits_weights(sovits_path))
+    print("使用SoVITS模型版本:", version, model_version, if_lora_v3)
     # 加载GPT模型权重
     (hz, max_sec, t2s_model) = next(change_gpt_weights(gpt_path))
     # 加载基础模型
-    base_model = init_model_by_version(version=model_version)
+    init_model_by_version(version=model_version)
+    # 获取基础模型实例
+    hifigan_model, bigvgan_model, sv_cn_model = get_all_models()
+    print(f"使用基础模型实例:hifigan_model:{hifigan_model}, bigvgan_model:{bigvgan_model}, sv_cn_model:{sv_cn_model}")
+        
     t = []
     if prompt_text is None or len(prompt_text) == 0:
         ref_free = True
@@ -546,7 +551,7 @@ def get_tts_wav(
         ref_free = False  # s2v3暂不支持ref_free
     else:
         if_sr = False
-    if model_version not in {"v3", "v4", "v2Pro", "v2ProPlus"}:
+    if model_version not in ["v3", "v4", "v2Pro", "v2ProPlus"]:
         clear_all_models()
     t0 = ttime()
     prompt_language = dict_language[prompt_language]
@@ -662,14 +667,14 @@ def get_tts_wav(
                         refer, audio_tensor = get_spepc(hps, path.name, dtype, device, is_v2pro)
                         refers.append(refer)
                         if is_v2pro:
-                            sv_emb.append(base_model.compute_embedding3(audio_tensor))
+                            sv_emb.append(sv_cn_model.compute_embedding3(audio_tensor))
                     except:
                         traceback.print_exc()
             if len(refers) == 0:
                 refers, audio_tensor = get_spepc(hps, ref_wav_path, dtype, device, is_v2pro)
                 refers = [refers]
                 if is_v2pro:
-                    sv_emb = [base_model.compute_embedding3(audio_tensor)]
+                    sv_emb = [sv_cn_model.compute_embedding3(audio_tensor)]
             if is_v2pro:
                 audio = vq_model.decode(
                     pred_semantic, torch.LongTensor(phones2).to(device).unsqueeze(0), refers, speed=speed, sv_emb=sv_emb
@@ -722,8 +727,9 @@ def get_tts_wav(
                 cfm_resss.append(cfm_res)
             cfm_res = torch.cat(cfm_resss, 2)
             cfm_res = denorm_spec(cfm_res)
+            vocoder_model = bigvgan_model if model_version == "v3" else hifigan_model
             with torch.inference_mode():
-                wav_gen = base_model(cfm_res)
+                wav_gen = vocoder_model(cfm_res)
                 audio = wav_gen[0][0]  # .cpu().detach().numpy()
         max_audio = torch.abs(audio).max()  # 简单防止16bit爆音
         if max_audio > 1:

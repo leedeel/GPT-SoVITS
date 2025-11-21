@@ -1,6 +1,5 @@
 import gradio as gr
-from config import get_weights_names
-from GPT_SoVITS.inference_webui_fn import (change_gpt_weights,change_sovits_weights)
+from api_interface.config import get_weights_names
 
 
 # ===== 模块1: 模型服务 =====

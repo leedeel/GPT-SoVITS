@@ -4,6 +4,10 @@ from config import (device, is_half)
 from GPT_SoVITS.module.models import Generator
 
 now_dir = os.getcwd()
+# 初始化
+hifigan_model = None
+bigvgan_model = None
+sv_cn_model = None
 
 def clean_hifigan_model():
     global hifigan_model
@@ -54,7 +58,6 @@ def init_bigvgan():
         bigvgan_model = bigvgan_model.half().to(device)
     else:
         bigvgan_model = bigvgan_model.to(device)
-    return bigvgan_model
 
 
 def init_hifigan():
@@ -84,7 +87,6 @@ def init_hifigan():
         hifigan_model = hifigan_model.half().to(device)
     else:
         hifigan_model = hifigan_model.to(device)
-    return hifigan_model
 
 
 def init_sv_cn():
@@ -93,20 +95,25 @@ def init_sv_cn():
     sv_cn_model = SV(device, is_half)
     clean_bigvgan_model()
     clean_hifigan_model()
-    return sv_cn_model
 
 
 def init_model_by_version(version: str):
-    base_model = None
     if version == "v3":
         base_model = init_bigvgan()
+        print("初始化BigVGAN模型...")
     elif version == "v4":
+        print("初始化HiFi-GAN模型...")
         base_model = init_hifigan()  
-    elif version in {"v2Pro", "v2ProPlus"}:
+    elif version in ["v2Pro", "v2ProPlus"]:
+        print("初始化中文说话人编码模型...")
         base_model = init_sv_cn()
-    return base_model
 
 def clear_all_models():
     clean_bigvgan_model()
     clean_hifigan_model()
     clean_sv_cn_model()
+    
+
+def get_all_models():
+    global hifigan_model, bigvgan_model, sv_cn_model
+    return hifigan_model, bigvgan_model, sv_cn_model

@@ -1,4 +1,4 @@
-from config import (
+from api_interface.config import (
     is_share,
     webui_port_main
 )

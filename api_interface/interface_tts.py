@@ -12,8 +12,8 @@ import sys
 now_dir = os.getcwd()
 sys.path.append(now_dir)
 sys.path.append("%s/GPT_SoVITS" % (now_dir))
-from config import (get_weights_names)
-from GPT_SoVITS.inference_webui_fn import (i18n,get_tts_wav)
+from api_interface.config import get_weights_names
+from GPT_SoVITS.inference_webui_fn import i18n,get_tts_wav
 
 
 def get_tts_wav_api(
