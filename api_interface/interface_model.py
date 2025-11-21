@@ -11,13 +11,12 @@ def create_model_app():
         SoVITS_names, GPT_names = get_weights_names()
         return {"SoVITS": SoVITS_names, "GPT": GPT_names}
     
-   
-   
-    with gr.Blocks(title="GPT-SoVITS模型API服务", theme=gr.themes.Soft()) as model_app:
-        gr.Markdown("## 🤖 模型管理")
-        with gr.Row():
-            list_btn = gr.Button("列出模型")
-            output = gr.JSON()
-        list_btn.click(fn=list_models, outputs=output, api_name="model_list")
+    model_interface = gr.Interface(
+        fn= list_models,
+        inputs=[],
+        outputs=gr.JSON(),
+        api_name="model_list",
+        title="GPT-SoVITS模型API服务"
+    )
     
-    return model_app
+    return model_interface

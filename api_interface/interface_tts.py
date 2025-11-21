@@ -1,7 +1,5 @@
 import gradio as gr
 import numpy as np
-import torch
-import librosa
 import traceback
 import tempfile
 import os
@@ -14,11 +12,13 @@ import sys
 now_dir = os.getcwd()
 sys.path.append(now_dir)
 sys.path.append("%s/GPT_SoVITS" % (now_dir))
-
-from GPT_SoVITS.inference_webui_fn import (get_tts_wav)
+from config import (get_weights_names)
+from GPT_SoVITS.inference_webui_fn import (i18n,get_tts_wav)
 
 
 def get_tts_wav_api(
+    sovits_path: str,
+    gpt_path: str,
     ref_wav_file: gr.Audio,  # 改为接受 gradio Audio 类型
     prompt_text: str,
     prompt_language: str,
@@ -41,6 +41,8 @@ def get_tts_wav_api(
     输入音频文件，输出音频文件和相关信息
     
     Args:
+        sovits_path: SoVITS模型路径
+        gpt_path: GPT模型路径
         ref_wav_file: 参考音频文件 (gradio.Audio 对象)
         prompt_text: 提示文本
         prompt_language: 提示文本语言
@@ -94,6 +96,8 @@ def get_tts_wav_api(
         
         # 这里我们重构处理逻辑，但保持核心算法
         opt_sr,audio_data = next(get_tts_wav(
+            sovits_path=sovits_path,
+            gpt_path=gpt_path,
             ref_wav_path=ref_wav_path,
             prompt_text=prompt_text,
             prompt_language=prompt_language,
@@ -191,9 +195,24 @@ def create_tts_app():
     cut_method_choices = ["不切", "凑四句一切", "凑50字一切", "按中文句号。切", "按英文句号.切", "按标点符号切"]
     
     # 创建接口
+    SoVITS_names, GPT_names = get_weights_names()
     tts_interface = gr.Interface(
         fn=get_tts_wav_api,
         inputs=[
+            gr.Dropdown(
+                label=i18n("SoVITS模型列表"),
+                choices=SoVITS_names,
+                value=SoVITS_names[0],
+                interactive=True,
+                scale=14,
+            ),
+            gr.Dropdown(
+                label=i18n("GPT模型列表"),
+                choices=GPT_names,
+                value=GPT_names[0],
+                interactive=True,
+                scale=14,
+            ),
             gr.Audio(
                 label="参考音频",
                 type="filepath"
@@ -295,124 +314,6 @@ def create_tts_app():
     )
     
     return tts_interface
-
-
-def create_simple_tts_api():
-    """创建简化版 TTS API"""
-    
-    def simple_tts_api(
-        ref_audio: gr.Audio,
-        text: str,
-        language: str = "中文",
-        speed: float = 1.0
-    ):
-        """简化版 TTS API"""
-        return get_tts_wav_api(
-            ref_wav_file=ref_audio,
-            prompt_text="",  # 自动从参考音频提取或使用默认
-            prompt_language=language,
-            text=text,
-            text_language=language,
-            speed=speed
-        )
-    
-    simple_interface = gr.Interface(
-        fn=simple_tts_api,
-        inputs=[
-            gr.Audio(label="参考音频", type="filepath"),
-            gr.Textbox(label="合成文本", placeholder="输入要合成的文本...", lines=2),
-            gr.Dropdown(
-                choices=["中文", "英文", "日文", "中英混合"],
-                label="语言",
-                value="中文"
-            ),
-            gr.Slider(0.5, 2.0, value=1.0, step=0.1, label="语速")
-        ],
-        outputs=[
-            gr.Audio(label="生成音频"),
-            gr.JSON(label="生成状态")
-        ],
-        title="简化版 TTS API",
-        description="快速文本到语音合成接口",
-        api_name="simple_tts"
-    )
-    
-    return simple_interface
-
-
-def create_batch_tts_api():
-    """创建批量 TTS API"""
-    
-    def batch_tts_api(
-        ref_audio: gr.Audio,
-        texts: str,  # JSON 字符串或每行一个文本
-        language: str = "中文",
-        speed: float = 1.0
-    ):
-        """批量 TTS 生成"""
-        try:
-            # 解析文本输入
-            if texts.strip().startswith('['):
-                # JSON 格式
-                import json
-                text_list = json.loads(texts)
-            else:
-                # 每行一个文本
-                text_list = [line.strip() for line in texts.split('\n') if line.strip()]
-            
-            results = []
-            for i, text in enumerate(text_list):
-                result = get_tts_wav_api(
-                    ref_wav_file=ref_audio,
-                    prompt_text="",
-                    prompt_language=language,
-                    text=text,
-                    text_language=language,
-                    speed=speed
-                )
-                results.append({
-                    "index": i,
-                    "text": text,
-                    "result": result
-                })
-            
-            return {
-                "status": "success",
-                "total": len(results),
-                "results": results
-            }
-            
-        except Exception as e:
-            return {
-                "status": "error",
-                "message": f"批量处理失败: {str(e)}"
-            }
-    
-    batch_interface = gr.Interface(
-        fn=batch_tts_api,
-        inputs=[
-            gr.Audio(label="参考音频", type="filepath"),
-            gr.Textbox(
-                label="批量文本",
-                placeholder='["文本1", "文本2", ...] 或 每行一个文本',
-                lines=5,
-            ),
-            gr.Dropdown(
-                choices=["中文", "英文", "日文"],
-                label="语言",
-                value="中文"
-            ),
-            gr.Slider(0.5, 2.0, value=1.0, step=0.1, label="语速")
-        ],
-        outputs=gr.JSON(label="批量生成结果"),
-        title="批量 TTS API",
-        description="批量文本到语音合成接口",
-        api_name="batch_tts"
-    )
-    
-    return batch_interface
-
-# ===== 启动服务 =====
 
 if __name__ == "__main__":
     # 创建并启动 API 服务
