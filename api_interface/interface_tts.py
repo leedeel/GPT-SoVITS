@@ -305,7 +305,7 @@ def create_tts_app():
             )
         ],
         outputs=[
-            gr.Audio(label="生成音频",scale=12),
+            gr.Audio(label="生成音频", scale=12, type="numpy"),
             gr.JSON(label="生成信息")
         ],
         title="GPT-SoVITS TTS API 服务",
