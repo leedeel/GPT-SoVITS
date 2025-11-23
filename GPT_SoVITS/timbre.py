@@ -1,6 +1,6 @@
 import torch
 
-def remove_timbre_features_advanced(refer, device, method="normalization"):
+def remove_timbre_features_advanced(refer, device, method="smoothing"):
     """
     增强版的音色特征去除函数
     
