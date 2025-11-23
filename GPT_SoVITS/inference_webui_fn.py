@@ -483,7 +483,7 @@ def audio_sr(audio, sr):
 ##ref_wav_path+prompt_text+prompt_language+text(单个)+text_language+top_k+top_p+temperature
 # cache_tokens={}#暂未实现清理机制
 from GPT_SoVITS.base_model_helper import (clear_all_models,init_model_by_version,get_all_models)
-
+from GPT_SoVITS.timbre import (remove_timbre_features_advanced)
 
 def get_tts_wav(
     sovits_path:str,
@@ -664,16 +664,20 @@ def get_tts_wav(
                 for path in inp_refs:
                     try:  #####这里加上提取sv的逻辑，要么一堆sv一堆refer，要么单个sv单个refer
                         refer, audio_tensor = get_spepc(hps, path.name, dtype, device, is_v2pro)
+                        # 对refer进行音色特征去除，只保留节奏信息
+                        refer = remove_timbre_features_advanced(refer, device)
                         refers.append(refer)
                         if is_v2pro:
                             sv_emb.append(sv_cn_model.compute_embedding3(audio_tensor))
                     except:
                         traceback.print_exc()
             if len(refers) == 0:
-                refers, audio_tensor = get_spepc(hps, ref_wav_path, dtype, device, is_v2pro)
-                refers = [refers]
+                refer, audio_tensor = get_spepc(hps, ref_wav_path, dtype, device, is_v2pro)
+                refer = remove_timbre_features_advanced(refer, device)
+                refers.append(refer)
                 if is_v2pro:
                     sv_emb = [sv_cn_model.compute_embedding3(audio_tensor)]
+            
             if is_v2pro:
                 audio = vq_model.decode(
                     pred_semantic, torch.LongTensor(phones2).to(device).unsqueeze(0), refers, speed=speed, sv_emb=sv_emb
