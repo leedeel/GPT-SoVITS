@@ -5,8 +5,8 @@ import tempfile
 import os
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-import io
-import base64
+import torch
+import gc
 import sys
 
 now_dir = os.getcwd()
@@ -14,6 +14,13 @@ sys.path.append(now_dir)
 sys.path.append("%s/GPT_SoVITS" % (now_dir))
 from api_interface.config import get_weights_names
 from GPT_SoVITS.inference_webui_fn import i18n,get_tts_wav
+
+
+def cleanup_memory():
+    """清理内存"""
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
 
 
 def get_tts_wav_api(
@@ -63,10 +70,6 @@ def get_tts_wav_api(
     Returns:
         Dict: 包含音频文件和元数据的字典
     """
-    
-    # 初始化缓存（如果是全局的，这里可以移除）
-    cache = {}
-    
     # 参数验证
     if not ref_wav_file:
         return {
@@ -136,6 +139,8 @@ def get_tts_wav_api(
             "audio": None,
             "traceback": traceback.format_exc()
         }
+    finally:
+        cleanup_memory()
 
 
 def save_temp_audio(audio_data: np.ndarray, sample_rate: int) -> str:
