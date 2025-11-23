@@ -658,6 +658,8 @@ def get_tts_wav(
         ###v3不存在以下逻辑和inp_refs
         if model_version not in v3v4set:
             refers = []
+            if is_v2pro:
+                sv_emb = []
             if inp_refs:
                 for path in inp_refs:
                     try:  #####这里加上提取sv的逻辑，要么一堆sv一堆refer，要么单个sv单个refer
