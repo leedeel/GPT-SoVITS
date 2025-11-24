@@ -1,21 +1,21 @@
-import os
 import re
 from warnings import warn
 import torch
+import torchaudio
 import torch.nn.functional as F
 import librosa
 import numpy as np
 from feature_extractor import cnhubert
 from GPT_SoVITS.text.LangSegmenter import LangSegmenter
 from module.models import SynthesizerTrn
-from module.mel_processing import spectrogram_torch
 from AR.models.t2s_lightning_module import Text2SemanticLightningModule
 from text import cleaned_text_to_sequence
 from text.cleaner import clean_text
-from tools.my_utils import load_audio
 from tools.i18n.i18n import I18nAuto
+from GPT_SoVITS.module.mel_processing import spectrogram_torch
 from api_interface.config import version, is_half, punctuation,cnhubert_path, bert_path
-from GPT_SoVITS.common import (init_dict_language,init_bert_model,init_ssl_model,get_bert_feature)
+from GPT_SoVITS.common import (init_device,init_dict_language,init_bert_model,init_ssl_model,get_bert_feature,get_spepc)
+from GPT_SoVITS.weights_manager import (change_sovits_weights)
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 i18n=I18nAuto(language="zh_CN")
@@ -215,71 +215,67 @@ def get_cleaned_text_final(text,language):
     return phones, word2ph, norm_text
 
 
-class DictToAttrRecursive(dict):
-    def __init__(self, input_dict):
-        super().__init__(input_dict)
-        for key, value in input_dict.items():
-            if isinstance(value, dict):
-                value = DictToAttrRecursive(value)
-            self[key] = value
-            setattr(self, key, value)
+resample_transform_dict = {}
+def _resample(audio_tensor, sr0, sr1, device):
+    """
+    重采样
+    audio_tensor: 音频数据
+    sr0: 原始采样率
+    sr1: 目标采样率
+    device: 设备
+    return:
+    audio_tensor: 重采样后的音频数据
+    """
+    print(f"重采样: {sr0} -> {sr1}")
+    global resample_transform_dict
+    key = "%s-%s-%s" % (sr0, sr1, str(device))
+    if key not in resample_transform_dict:
+        resample_transform_dict[key] = torchaudio.transforms.Resample(sr0, sr1).to(device)
+    return resample_transform_dict[key](audio_tensor)
 
-    def __getattr__(self, item):
-        try:
-            return self[item]
-        except KeyError:
-            raise AttributeError(f"Attribute {item} not found")
-
-    def __setattr__(self, key, value):
-        if isinstance(value, dict):
-            value = DictToAttrRecursive(value)
-        super(DictToAttrRecursive, self).__setitem__(key, value)
-        super().__setattr__(key, value)
-
-    def __delattr__(self, item):
-        try:
-            del self[item]
-        except KeyError:
-            raise AttributeError(f"Attribute {item} not found")
-
-
-
-def change_sovits_weights(sovits_path):
-    dict_s2 = torch.load(sovits_path, map_location=device, weights_only=False)
-    hps = dict_s2["config"]
-    hps = DictToAttrRecursive(hps)
-    hps.model.semantic_frame_rate = "25hz"
-    vq_model = SynthesizerTrn(
-        hps.data.filter_length // 2 + 1,
-        hps.train.segment_size // hps.data.hop_length,
-        n_speakers=hps.data.n_speakers,
-        **hps.model
-    )
-    if ("pretrained" not in sovits_path):
-        del vq_model.enc_q
-    if is_half == True:
-        vq_model = vq_model.half().to(device)
+def get_spepc(hps, filename, dtype, device, is_v2pro=False):
+    """
+    获取音频特征
+    hps: 超参数
+    filename: 音频文件路径
+    dtype: 数据类型
+    device: 设备
+    is_v2pro: 是否是 v2pro 版本
+    return:
+    spec: 音频特征
+    audio: 音频数据
+    """
+    sr1 = int(hps.data.sampling_rate)
+    audio, sr0 = torchaudio.load(filename)
+    if sr0 != sr1:
+        audio = audio.to(device)
+        if audio.shape[0] == 2:
+            audio = audio.mean(0).unsqueeze(0)
+        audio = _resample(audio, sr0, sr1, device)
     else:
-        vq_model = vq_model.to(device)
-    vq_model.eval()
-    print(vq_model.load_state_dict(dict_s2["weight"], strict=False))
-    return vq_model, hps
+        audio = audio.to(device)
+        if audio.shape[0] == 2:
+            audio = audio.mean(0).unsqueeze(0)
 
-
-def get_spepc(hps, filename):
-    audio = load_audio(filename, int(hps.data.sampling_rate))
-    audio = torch.FloatTensor(audio)
-    audio_norm = audio
-    audio_norm = audio_norm.unsqueeze(0)
+    maxx = audio.abs().max()
+    if maxx > 1:
+        audio /= min(2, maxx)
     spec = spectrogram_torch(
-        audio_norm,
+        audio,
         hps.data.filter_length,
         hps.data.sampling_rate,
         hps.data.hop_length,
         hps.data.win_length,
         center=False,
     )
-    return spec
+    spec = spec.to(dtype)
+    if is_v2pro == True:
+        audio = _resample(audio, sr1, 16000, device).to(dtype)
+    # 添加详细的形状信息
+    print(f"Raw audio shape: {audio.shape}")
+    print(f"Extracted spec shape: {spec.shape}")
+    print(f"Spec stats - min: {spec.min()}, max: {spec.max()}, mean: {spec.mean()}")
+    return spec, audio
 
 
 
@@ -304,8 +300,14 @@ def get_vc_wav(
     phones, word2ph, norm_text = get_cleaned_text_final(source_wav_text, language)
     
     # 加载SoVITS模型权重
-    ( vq_model, hps) = next(change_sovits_weights(sovits_path))
-    spec = get_spepc(hps=hps,filename=ref_wav_path)
+    ( version, model_version, if_lora_v3, vq_model, hps) = next(change_sovits_weights(sovits_path))
+    print("使用SoVITS模型版本:", version, model_version, if_lora_v3)
+    is_v2pro = model_version in {"v2Pro", "v2ProPlus"}
+    (spec, audio_len) = get_spepc(hps=hps, 
+                                  filename=ref_wav_path,
+                                  dtype=dtype,
+                                  device=device,
+                                  is_v2pro=is_v2pro)
     codes = get_code_from_wav(source_wav_path,vq_model)[None, None]  # 必须是 3D, [n_q, B, T]
     ge = vq_model.ref_enc(spec)  # [B, D, T/1] 
     quantized = vq_model.quantizer.decode(codes)  # [B, D, T]
