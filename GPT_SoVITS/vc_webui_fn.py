@@ -336,9 +336,37 @@ def get_vc_wav(
     phones_tensor = torch.LongTensor(phones)[None].to(device)
     phones_length = torch.LongTensor([len(phones)]).to(device)
     
-    _, m_p, logs_p, y_mask = vq_model.enc_p(
-        quantized, quantized_length, phones_tensor, phones_length, ge
-    )
+    
+    print("=== 调试信息 ===")
+    print(f"quantized 形状: {quantized.shape}")
+    print(f"ge 形状: {ge.shape}")
+    print(f"phones 长度: {len(phones)}")
+    print(f"quantized 长度张量: {torch.LongTensor([quantized.shape[-1]])}")
+    print(f"phones 张量形状: {torch.LongTensor(phones)[None].shape}")
+    print(f"phones 长度张量: {torch.LongTensor([len(phones)])}")
+    # 检查模型结构
+    if hasattr(vq_model.enc_p, 'mrte'):
+        if hasattr(vq_model.enc_p.mrte, 'cross_attention'):
+            print("MRTE 模型存在交叉注意力层")
+    # 尝试调用 enc_p
+    try:
+        _, m_p, logs_p, y_mask = vq_model.enc_p(
+            quantized, quantized_length, phones_tensor, phones_length, ge
+        )
+    except RuntimeError as e:
+        print(f"enc_p 调用失败: {e}")
+        # 尝试使用不同的 ge 维度
+        if ge.shape[1] == 1024:
+            print("尝试使用512维风格嵌入")
+            ge_512 = ge[:, :512, :]  # 截断前512维
+            _, m_p, logs_p, y_mask = vq_model.enc_p(
+                quantized, quantized_length, phones_tensor, phones_length, ge_512
+            )
+        else:
+            raise e
+    # _, m_p, logs_p, y_mask = vq_model.enc_p(
+    #     quantized, quantized_length, phones_tensor, phones_length, ge
+    # )
     z_p = m_p + torch.randn_like(m_p) * torch.exp(logs_p) * noise_scale
     z = vq_model.flow(z_p, y_mask, g=ge, reverse=True)
     o = vq_model.dec((z * y_mask)[:, :, :], g=ge)  # [B, D=1, T], torch.float32 (-1, 1)
