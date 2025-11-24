@@ -281,24 +281,45 @@ def get_spepc(hps, filename, dtype, device, is_v2pro=False,target_dim=None):
     return spec, audio
 
 
-def check_model_compatibility(model_path):
-    """检查模型文件与代码的兼容性"""
-    checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
+
+def check_loaded_model_compatibility(vq_model):
+    """检查已加载模型的兼容性"""
+    print("=== 已加载模型检查 ===")
     
-    print("=== 模型文件检查 ===")
-    if 'config' in checkpoint:
-        config = checkpoint['config']
-        if 'model' in config and 'gin_channels' in config['model']:
-            print(f"模型文件中的 gin_channels: {config['model']['gin_channels']}")
+    # 检查模型的状态字典键名
+    state_dict = vq_model.state_dict()
+    model_keys = list(state_dict.keys())
     
-    # 检查权重键名，寻找维度不匹配的线索
-    model_keys = list(checkpoint['model'].keys()) if 'model' in checkpoint else list(checkpoint.keys())
+    # 查找与MRTE和投影相关的键
     mrte_keys = [k for k in model_keys if 'mrte' in k]
-    print(f"MRTE相关键: {mrte_keys[:5]}...")  # 只显示前5个
+    print(f"MRTE相关键 ({len(mrte_keys)}): {mrte_keys[:10]}...")  # 只显示前10个
     
-    # 检查是否有投影层权重
+    # 检查是否有投影层
     proj_keys = [k for k in model_keys if 'proj' in k or 'linear' in k]
-    print(f"投影层相关键: {proj_keys[:5]}...")
+    print(f"投影层相关键 ({len(proj_keys)}): {proj_keys[:10]}...")
+    
+    # 特别关注风格嵌入的投影
+    style_proj_keys = [k for k in proj_keys if 'style' in k or 'ref' in k or 'enc' in k]
+    if style_proj_keys:
+        print(f"风格嵌入投影层: {style_proj_keys}")
+    else:
+        print("未找到明确的风格嵌入投影层")
+    
+    # 检查MRTE层的输入维度
+    if hasattr(vq_model, 'enc_p') and hasattr(vq_model.enc_p, 'mrte'):
+        mrte = vq_model.enc_p.mrte
+        # 尝试获取MRTE的输入维度
+        if hasattr(mrte, 'in_dim'):
+            print(f"MRTE输入维度: {mrte.in_dim}")
+        else:
+            # 通过其第一层的权重推断
+            for name, param in mrte.named_parameters():
+                if 'weight' in name and param.dim() == 2:
+                    print(f"MRTE层 '{name}' 权重形状: {param.shape}")
+                    # 通常权重矩阵的形状为 (输出维度, 输入维度)
+                    # 如果这是第一层，那么输入维度就是param.shape[1]
+                    break
+
 
 
 
@@ -321,11 +342,12 @@ def get_vc_wav(
     language = dict_language[language]
 
     phones, word2ph, norm_text = get_cleaned_text_final(source_wav_text, language)
-    check_model_compatibility(sovits_path)
+    
     
     # 加载SoVITS模型权重
     ( version, model_version, if_lora_v3, vq_model, hps) = next(change_sovits_weights(sovits_path))
     print("使用SoVITS模型版本:", version, model_version, if_lora_v3)
+    check_loaded_model_compatibility(vq_model=vq_model)
     print("=== 模型配置检查 ===")
     print(f"模型版本: {model_version}")
     print(f"hps.gin_channels: {getattr(hps, 'gin_channels', '未找到')}")
