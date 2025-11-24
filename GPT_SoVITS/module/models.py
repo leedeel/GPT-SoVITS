@@ -844,6 +844,8 @@ class SynthesizerTrn(nn.Module):
         self.version = version
 
         self.use_sdp = use_sdp
+        print(f"spec_channels:{spec_channels},inter_channels:{inter_channels},hidden_channels:{hidden_channels},filter_channels:{filter_channels},n_heads:{n_heads},n_layers:{n_layers},kernel_size:{kernel_size},p_dropout:{p_dropout},resblock:{resblock},resblock_kernel_sizes:{resblock_kernel_sizes},resblock_dilation_sizes:{resblock_dilation_sizes},upsample_rates:{upsample_rates},upsample_initial_channel:{upsample_initial_channel},upsample_kernel_sizes:{upsample_kernel_sizes},n_speakers:{n_speakers},gin_channels:{gin_channels},use_sdp:{use_sdp},semantic_frame_rate:{semantic_frame_rate},freeze_quantizer:{freeze_quantizer},version:{version}")
+        
         self.enc_p = TextEncoder(
             inter_channels,
             hidden_channels,
