@@ -1129,7 +1129,7 @@ class SynthesizerTrn(nn.Module):
                     ge = self.ref_enc(refer * refer_mask, refer_mask)
                 else:
                     ge = self.ref_enc(refer[:, :704] * refer_mask, refer_mask)
-                if self.is_v2pro:
+                if sv_emb:
                     sv_emb = self.sv_emb(sv_emb)  # B*20480->B*512
                     ge += sv_emb.unsqueeze(-1)
                     ge = self.prelu(ge)
