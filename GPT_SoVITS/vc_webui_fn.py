@@ -32,7 +32,7 @@ def init():
     print("init")
     global device,dict_language,tokenizer,bert_model,ssl_model
     # 初始化语言字典
-    dict_language = init_dict_language(version=version)
+    i18n,dict_language = init_dict_language(version=version)
     # 初始化BERT模型
     tokenizer,bert_model = init_bert_model(bert_model_path=bert_path)
     # 初始化ssl模型
