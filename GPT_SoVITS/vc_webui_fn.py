@@ -336,6 +336,17 @@ def get_vc_wav(
                                             dtype=dtype,
                                             device=device,
                                             is_v2pro=is_v2pro)
+    # 调试：打印原始形状
+    print(f"source_audio shape: {source_audio.shape}")
+    if source_audio.dim() == 2:
+        # 如果是双声道，取平均变成单声道
+        if source_audio.shape[0] == 2:
+            source_audio = source_audio.mean(dim=0)
+        else:
+            # 如果已经是单声道，但有两个维度，则压缩成1D
+            source_audio = source_audio.squeeze(0)
+    # 现在source_audio是1D
+    source_audio = source_audio.unsqueeze(0)  # 变成 [1, 样本数]
     
     # 使用目标说话人的音色特征
     target_spec, target_audio = get_spepc(hps=hps, filename=target_wav_path, 
