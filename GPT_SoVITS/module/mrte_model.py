@@ -77,7 +77,7 @@ class MRTE1024(nn.Module):
         ge_layer=2,
         ge_dim=1024  # 新增参数，指定期望的风格嵌入维度
     ):
-        super(MRTE, self).__init__()
+        super(MRTE1024, self).__init__()
         self.cross_attention = MultiHeadAttention(hidden_size, hidden_size, n_heads)
         self.c_pre = nn.Conv1d(content_enc_channels, hidden_size, 1)
         self.text_pre = nn.Conv1d(content_enc_channels, hidden_size, 1)
