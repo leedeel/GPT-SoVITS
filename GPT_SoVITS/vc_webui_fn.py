@@ -15,11 +15,12 @@ from text.cleaner import clean_text
 from tools.my_utils import load_audio
 from tools.i18n.i18n import I18nAuto
 from api_interface.config import version, is_half, punctuation,cnhubert_path, bert_path
-from GPT_SoVITS.common import (init_device,init_dict_language,init_bert_model,init_ssl_model,get_bert_feature)
+from GPT_SoVITS.common import (init_device,init_dict_language,init_bert_model,init_ssl_model,get_bert_feature,get_spepc)
 from GPT_SoVITS.weights_manager import (change_gpt_weights,change_sovits_weights,DictToAttrRecursive)
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 i18n=I18nAuto(language="zh_CN")
+dtype=torch.float16 if is_half == True else torch.float32
 dict_language=None
 bert_model=None
 ssl_model=None
@@ -41,20 +42,6 @@ def init():
 # 初始化函数
 init()
 
-def get_spepc(hps, filename):
-    audio = load_audio(filename, int(hps.data.sampling_rate))
-    audio = torch.FloatTensor(audio)
-    audio_norm = audio
-    audio_norm = audio_norm.unsqueeze(0)
-    spec = spectrogram_torch(
-        audio_norm,
-        hps.data.filter_length,
-        hps.data.sampling_rate,
-        hps.data.hop_length,
-        hps.data.win_length,
-        center=False,
-    )
-    return spec
 
 def clean_text_inf(text, language):
     """
@@ -96,7 +83,7 @@ def get_bert_inf(phones, word2ph, norm_text, language):
     else:
         bert = torch.zeros(
             (1024, len(phones)),
-            dtype=torch.float16 if is_half == True else torch.float32,
+            dtype=dtype,
         ).to(device)
 
     return bert
@@ -252,8 +239,12 @@ def get_vc_wav(
     # 加载SoVITS模型权重
     ( version, model_version, if_lora_v3, vq_model, hps) = next(change_sovits_weights(sovits_path))
     print("使用SoVITS模型版本:", version, model_version, if_lora_v3)
-
-    spec = get_spepc(hps, ref_wav_path) 
+    is_v2pro = model_version in {"v2Pro", "v2ProPlus"}
+    (spec, audio_len) = get_spepc(hps=hps, 
+                                  filename=ref_wav_path,
+                                  dtype=dtype,
+                                  device=device,
+                                  is_v2pro=True)
     codes = get_code_from_wav(source_wav_path,vq_model)[None, None]  # 必须是 3D, [n_q, B, T]
     ge = vq_model.ref_enc(spec)  # [B, D, T/1] 
     quantized = vq_model.quantizer.decode(codes)  # [B, D, T]

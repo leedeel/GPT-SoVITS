@@ -1,8 +1,9 @@
 import torch
-import os
+import torchaudio
 from tools.i18n.i18n import I18nAuto, scan_language_list
 from transformers import AutoModelForMaskedLM, AutoTokenizer
 from GPT_SoVITS.feature_extractor import cnhubert
+from GPT_SoVITS.module.mel_processing import spectrogram_torch
 from api_interface.config import  is_half
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -122,3 +123,60 @@ def get_bert_feature(text:str, word2ph:list, tokenizer, bert_model, device):
         phone_level_feature.append(repeat_feature)
     phone_level_feature = torch.cat(phone_level_feature, dim=0)
     return phone_level_feature.T
+
+
+def _resample(audio_tensor, sr0, sr1, device):
+    """
+    重采样
+    audio_tensor: 音频数据
+    sr0: 原始采样率
+    sr1: 目标采样率
+    device: 设备
+    return:
+    audio_tensor: 重采样后的音频数据
+    """
+    global resample_transform_dict
+    key = "%s-%s-%s" % (sr0, sr1, str(device))
+    if key not in resample_transform_dict:
+        resample_transform_dict[key] = torchaudio.transforms.Resample(sr0, sr1).to(device)
+    return resample_transform_dict[key](audio_tensor)
+
+def get_spepc(hps, filename, dtype, device, is_v2pro=False):
+    """
+    获取音频特征
+    hps: 超参数
+    filename: 音频文件路径
+    dtype: 数据类型
+    device: 设备
+    is_v2pro: 是否是 v2pro 版本
+    return:
+    spec: 音频特征
+    audio: 音频数据
+    """
+    sr1 = int(hps.data.sampling_rate)
+    audio, sr0 = torchaudio.load(filename)
+    if sr0 != sr1:
+        audio = audio.to(device)
+        if audio.shape[0] == 2:
+            audio = audio.mean(0).unsqueeze(0)
+        audio = _resample(audio, sr0, sr1, device)
+    else:
+        audio = audio.to(device)
+        if audio.shape[0] == 2:
+            audio = audio.mean(0).unsqueeze(0)
+
+    maxx = audio.abs().max()
+    if maxx > 1:
+        audio /= min(2, maxx)
+    spec = spectrogram_torch(
+        audio,
+        hps.data.filter_length,
+        hps.data.sampling_rate,
+        hps.data.hop_length,
+        hps.data.win_length,
+        center=False,
+    )
+    spec = spec.to(dtype)
+    if is_v2pro == True:
+        audio = _resample(audio, sr1, 16000, device).to(dtype)
+    return spec, audio

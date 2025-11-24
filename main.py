@@ -21,7 +21,7 @@ def create_main_app():
     main_app = gr.TabbedInterface(
         [model_module,tts_module,vc_module],
         ["GPT-SoVITS模型API服务","GPT-SoVITS TTS API服务","GPT-SoVITS VC API服务"],
-        title="模块化应用集合"
+        title="GPT-SoVITS API服务"
     )
     return main_app
 
