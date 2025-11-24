@@ -311,35 +311,33 @@ def get_vc_wav(
                                   dtype=dtype,
                                   device=device,
                                   is_v2pro=is_v2pro)
-    codes = get_code_from_wav(source_wav_path,vq_model)[None, None]  # 必须是 3D, [n_q, B, T]
-    print(f"模型版本: {model_version}")
-    print(f"频谱形状: {spec.shape}")
-    print(f"vq_model是否有version属性: {hasattr(vq_model, 'version')}")
-    if hasattr(vq_model, 'version'):
-        print(f"vq_model.version: {vq_model.version}")
-    
-    # 根据模型版本调整输入维度
+    # 维度截断（您之前的修复）
     if model_version != "v1":
-        # 非v1版本需要704维输入
-        if spec.dim() == 3:  # [B, D, T] 形状
-            if spec.shape[1] > 704:  # 检查特征维度
-                print(f"截断频谱维度: {spec.shape[1]} -> 704")
-                spec = spec[:, :704, :]  # 取前704个特征维度
-            elif spec.shape[1] < 704:
-                print(f"警告: 频谱维度不足: {spec.shape[1]} < 704")
-                # 可以考虑填充或使用其他处理
-        else:
-            print(f"警告: 意外的频谱形状: {spec.shape}")
+        if spec.dim() == 3 and spec.shape[1] > 704:
+            print(f"截断频谱维度: {spec.shape[1]} -> 704")
+            spec = spec[:, :704, :]
     
-    ge = vq_model.ref_enc(spec)  # [B, D, T/1] 
-    quantized = vq_model.quantizer.decode(codes)  # [B, D, T]
+    codes = get_code_from_wav(source_wav_path, vq_model)[None, None]
+    # 确保codes在正确的设备上
+    codes = codes.to(device)
+    
+    ge = vq_model.ref_enc(spec)
+    quantized = vq_model.quantizer.decode(codes)
     if hps.model.semantic_frame_rate == "25hz":
         quantized = F.interpolate(
             quantized, size=int(quantized.shape[-1] * 2), mode="nearest"
         )
+    # 确保所有输入张量都在模型设备上
+    quantized = quantized.to(device)
+    ge = ge.to(device)
+    
+    # 确保这些张量也在正确的设备上
+    quantized_length = torch.LongTensor([quantized.shape[-1]]).to(device)
+    phones_tensor = torch.LongTensor(phones)[None].to(device)
+    phones_length = torch.LongTensor([len(phones)]).to(device)
+    
     _, m_p, logs_p, y_mask = vq_model.enc_p(
-        quantized, torch.LongTensor([quantized.shape[-1]]), 
-        torch.LongTensor(phones)[None], torch.LongTensor([len(phones)]), ge
+        quantized, quantized_length, phones_tensor, phones_length, ge
     )
     z_p = m_p + torch.randn_like(m_p) * torch.exp(logs_p) * noise_scale
     z = vq_model.flow(z_p, y_mask, g=ge, reverse=True)
