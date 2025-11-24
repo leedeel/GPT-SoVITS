@@ -245,7 +245,7 @@ class DictToAttrRecursive(dict):
 
 
 def change_sovits_weights(sovits_path):
-    dict_s2 = torch.load(sovits_path, map_location=device)
+    dict_s2 = torch.load(sovits_path, map_location=device, weights_only=False)
     hps = dict_s2["config"]
     hps = DictToAttrRecursive(hps)
     hps.model.semantic_frame_rate = "25hz"
