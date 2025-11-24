@@ -163,6 +163,7 @@ class TextEncoder(nn.Module):
         p_dropout,
         latent_channels=192,
         version="v2",
+        gin_channels=512  # 新增参数，指定风格嵌入维度
     ):
         super().__init__()
         self.out_channels = out_channels
@@ -196,7 +197,8 @@ class TextEncoder(nn.Module):
             symbols = symbols_v2.symbols
         self.text_embedding = nn.Embedding(len(symbols), hidden_channels)
 
-        self.mrte = MRTE()
+        # === 修改：传递正确的ge_dim ===
+        self.mrte = MRTE(ge_dim=gin_channels)
 
         self.encoder2 = attentions.Encoder(
             hidden_channels,
@@ -855,6 +857,7 @@ class SynthesizerTrn(nn.Module):
             kernel_size,
             p_dropout,
             version=version,
+            gin_channels=gin_channels 
         )
         self.dec = Generator(
             inter_channels,

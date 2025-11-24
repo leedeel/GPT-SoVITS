@@ -7,7 +7,6 @@ import librosa
 import numpy as np
 from feature_extractor import cnhubert
 from GPT_SoVITS.text.LangSegmenter import LangSegmenter
-from module.models import SynthesizerTrn
 from AR.models.t2s_lightning_module import Text2SemanticLightningModule
 from text import cleaned_text_to_sequence
 from text.cleaner import clean_text
@@ -352,12 +351,6 @@ def get_vc_wav(
     print(f"模型版本: {model_version}")
     print(f"hps.gin_channels: {getattr(hps, 'gin_channels', '未找到')}")
     print(f"hps.model.gin_channels: {getattr(hps.model, 'gin_channels', '未找到')}")
-    
-    # === 修复1: 修正模型配置 ===
-    print(f"原始 gin_channels: {hps.model.gin_channels}")
-    if hps.model.gin_channels == 1024:
-        print("修正模型配置: gin_channels 1024 -> 512")
-        hps.model.gin_channels = 512
 
     # 检查MRTE模型的期望维度
     if hasattr(vq_model.enc_p, 'mrte'):
@@ -384,42 +377,6 @@ def get_vc_wav(
     codes = codes.to(device)
     
     ge = vq_model.ref_enc(spec)
-     # === 修复3: 使用现有的投影层处理风格嵌入 ===
-    print(f"风格嵌入 ge 形状: {ge.shape}")
-    # 检查是否有可用的投影层
-    if hasattr(vq_model.enc_p, 'ssl_proj') and ge.shape[1] == 1024:
-        print("使用现有的 ssl_proj 投影层处理风格嵌入")
-        
-        # 检查投影层的输入输出维度
-        ssl_proj_weight = vq_model.enc_p.ssl_proj.weight
-        ssl_proj_bias = vq_model.enc_p.ssl_proj.bias
-        print(f"ssl_proj 权重形状: {ssl_proj_weight.shape}")
-        print(f"ssl_proj 偏置形状: {ssl_proj_bias.shape if ssl_proj_bias is not None else '无'}")
-        
-        # 如果投影层期望的输入是1024维，输出是512维
-        if ssl_proj_weight.shape[1] == 1024 and ssl_proj_weight.shape[0] == 512:
-            print("使用 ssl_proj 投影1024->512维")
-            # 转置、投影、再转置回来
-            ge = vq_model.enc_p.ssl_proj(ge.transpose(1, 2)).transpose(1, 2)
-        else:
-            print("ssl_proj 维度不匹配，使用备选方案")
-            # 使用其他投影层或智能重组
-            if hasattr(vq_model.enc_p, 'proj'):
-                proj_weight = vq_model.enc_p.proj.weight
-                if proj_weight.shape[1] == 1024 and proj_weight.shape[0] == 512:
-                    print("使用 proj 投影1024->512维")
-                    ge = vq_model.enc_p.proj(ge.transpose(1, 2)).transpose(1, 2)
-                else:
-                    print("使用智能特征重组")
-                    ge = ge[:, ::2, :]  # 交替采样
-            else:
-                print("使用智能特征重组")
-                ge = ge[:, ::2, :]  # 交替采样
-    else:
-        print("使用智能特征重组")
-        ge = ge[:, ::2, :]  # 交替采样
-    
-    print(f"投影后 ge 形状: {ge.shape}")
     
     quantized = vq_model.quantizer.decode(codes)
     if hps.model.semantic_frame_rate == "25hz":
@@ -454,15 +411,7 @@ def get_vc_wav(
         )
     except RuntimeError as e:
         print(f"enc_p 调用失败: {e}")
-        # 尝试使用不同的 ge 维度
-        if ge.shape[1] == 1024:
-            print("尝试使用512维风格嵌入")
-            ge_512 = ge[:, :512, :]  # 截断前512维
-            _, m_p, logs_p, y_mask = vq_model.enc_p(
-                quantized, quantized_length, phones_tensor, phones_length, ge_512
-            )
-        else:
-            raise e
+        raise e
     # _, m_p, logs_p, y_mask = vq_model.enc_p(
     #     quantized, quantized_length, phones_tensor, phones_length, ge
     # )
