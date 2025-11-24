@@ -6,6 +6,8 @@ from process_ckpt import get_sovits_version_from_path_fast, load_sovits_new
 from api_interface.config import  is_half, pretrained_sovits_name
 from peft import LoraConfig, get_peft_model
 
+device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 class DictToAttrRecursive(dict):
     def __init__(self, input_dict):
         super().__init__(input_dict)
@@ -34,7 +36,7 @@ class DictToAttrRecursive(dict):
             raise AttributeError(f"Attribute {item} not found")
 
 
-def change_sovits_weights(sovits_path:str,device:str):
+def change_sovits_weights(sovits_path:str):
     """
     更换SoVITS模型权重
     @param sovits_path: SoVITS模型路径
@@ -125,7 +127,7 @@ def change_sovits_weights(sovits_path:str,device:str):
     )
 
 
-def change_gpt_weights(gpt_path:str,device:str):
+def change_gpt_weights(gpt_path:str):
     """
     更换GPT模型权重
     @param gpt_path: GPT模型路径
