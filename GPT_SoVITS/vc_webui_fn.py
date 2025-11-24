@@ -18,7 +18,12 @@ from api_interface.config import version, is_half, punctuation,cnhubert_path, be
 from GPT_SoVITS.common import (init_device,init_dict_language,init_bert_model,init_ssl_model,get_bert_feature)
 from GPT_SoVITS.weights_manager import (change_gpt_weights,change_sovits_weights,DictToAttrRecursive)
 
-i18n = I18nAuto(language="zh_CN")
+device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
+i18n=I18nAuto(language="zh_CN")
+dict_language=None
+bert_model=None
+ssl_model=None
+tokenizer=None
 
 def init():
     """
@@ -26,8 +31,6 @@ def init():
     """
     print("init")
     global device,dict_language,tokenizer,bert_model,ssl_model
-    # 初始化设备参数
-    device = init_device()
     # 初始化语言字典
     dict_language = init_dict_language(version=version)
     # 初始化BERT模型
