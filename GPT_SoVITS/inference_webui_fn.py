@@ -16,7 +16,13 @@ from tools.i18n.i18n import I18nAuto
 from GPT_SoVITS.common import (init_device,init_dict_language,init_bert_model,init_ssl_model)
 from GPT_SoVITS.weights_manager import (change_gpt_weights,change_sovits_weights,DictToAttrRecursive)
 
-i18n = I18nAuto(language="zh_CN")
+device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
+i18n=I18nAuto(language="zh_CN")
+dtype=torch.float16 if is_half == True else torch.float32
+dict_language=None
+bert_model=None
+ssl_model=None
+tokenizer=None
 
 def init():
     """
@@ -24,10 +30,8 @@ def init():
     """
     print("init")
     global device,dict_language,tokenizer,bert_model,ssl_model
-    # 初始化设备参数
-    device = init_device()
     # 初始化语言字典
-    dict_language = init_dict_language(version=version)
+    i18n,dict_language = init_dict_language(version=version)
     # 初始化BERT模型
     tokenizer,bert_model = init_bert_model(bert_model_path=bert_path)
     # 初始化ssl模型
@@ -35,7 +39,6 @@ def init():
 
 # 初始化函数
 init()
-
 
 resample_transform_dict = {}
 
