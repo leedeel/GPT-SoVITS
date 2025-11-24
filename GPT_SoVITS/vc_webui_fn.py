@@ -336,32 +336,12 @@ def get_vc_wav(
                                             dtype=dtype,
                                             device=device,
                                             is_v2pro=is_v2pro)
-    # 调试：打印原始形状
-    print(f"source_audio shape: {source_audio.shape}")
-    if source_audio.dim() == 2:
-        # 如果是双声道，取平均变成单声道
-        if source_audio.shape[0] == 2:
-            source_audio = source_audio.mean(dim=0)
-        else:
-            # 如果已经是单声道，但有两个维度，则压缩成1D
-            source_audio = source_audio.squeeze(0)
-    # 现在source_audio是1D
-    source_audio = source_audio.unsqueeze(0)  # 变成 [1, 样本数]
-    
     # 使用目标说话人的音色特征
     target_spec, target_audio = get_spepc(hps=hps, filename=target_wav_path, 
                                           dtype=dtype, device=device, is_v2pro=is_v2pro)
     target_sv_emb = sv_cn_model.compute_embedding3(target_audio)
     sv_emb.append(target_sv_emb)
     
-    # 3. 从源音频提取语义内容
-    # 3. 从源音频提取语义内容
-    ssl_content = ssl_model.model(source_audio.unsqueeze(0))["last_hidden_state"].transpose(1, 2)
-    codes = vq_model.extract_latent(ssl_content)
-    prompt_semantic = codes[0, 0]
-    phones2, bert2, norm_text2 = get_phones_and_bert(text=source_wav_text,
-                                                     language=language, 
-                                                     version=version)
     with torch.no_grad():
         wav16k, sr = librosa.load(source_wav_path, sr=16000)
         wav16k = torch.from_numpy(wav16k)
@@ -384,7 +364,12 @@ def get_vc_wav(
         prompt_semantic = codes[0, 0]
         prompt = prompt_semantic.unsqueeze(0).to(device)
         
+        # 3. 从源音频提取语义内容
+        phones2, bert2, norm_text2 = get_phones_and_bert(text=source_wav_text,
+                                                        language=language, 
+                                                        version=version)
         all_phoneme_ids = torch.LongTensor(phones2).to(device).unsqueeze(0)
+        bert = bert.to(device).unsqueeze(0)
         all_phoneme_len = torch.tensor([all_phoneme_ids.shape[-1]]).to(device)
         pred_semantic, idx = t2s_model.model.infer_panel(
             all_phoneme_ids,
@@ -406,13 +391,6 @@ def get_vc_wav(
                     speed=1.0, 
                     sv_emb=sv_emb
                 )[0][0]
-    audio = vq_model.decode(
-        prompt_semantic.unsqueeze(0),
-        torch.LongTensor(phones).to(device).unsqueeze(0),
-        [source_spec],  # 使用源音频的声学特征保持韵律
-        speed=1.0,
-        sv_emb=[target_sv_emb]  # 使用目标说话人的音色
-    )[0][0]
     
     max_audio = torch.abs(audio).max()  # 简单防止16bit爆音
     if max_audio > 1:
