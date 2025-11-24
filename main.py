@@ -5,7 +5,6 @@ from api_interface.config import (
 import gradio as gr
 from api_interface.interface_model import create_model_app
 from api_interface.interface_tts import create_tts_app
-from api_interface.interface_vc import create_vc_app
 
 
 # ===== 主应用: 组合所有模块 =====
@@ -15,12 +14,11 @@ def create_main_app():
     # 创建各个模块
     model_module = create_model_app()
     tts_module = create_tts_app()
-    vc_module = create_vc_app()
     
     # 使用 TabbedInterface 组合
     main_app = gr.TabbedInterface(
-        [model_module,tts_module,vc_module],
-        ["GPT-SoVITS模型API服务","GPT-SoVITS TTS API服务","GPT-SoVITS VC API服务"],
+        [model_module,tts_module],
+        ["GPT-SoVITS模型API服务","GPT-SoVITS TTS API服务"],
         title="GPT-SoVITS API服务"
     )
     return main_app
