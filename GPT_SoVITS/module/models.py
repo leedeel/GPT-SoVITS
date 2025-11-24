@@ -299,8 +299,15 @@ class TextEncoder1024(nn.Module):
             symbols = symbols_v2.symbols
         self.text_embedding = nn.Embedding(len(symbols), hidden_channels)
 
-        # === 修改：传递正确的ge_dim ===
-        self.mrte = MRTE1024(ge_dim=gin_channels)
+        # 修改MRTE初始化
+        self.mrte = MRTE1024(
+            content_enc_channels=hidden_channels,
+            hidden_size=hidden_channels,
+            out_channels=hidden_channels,
+            kernel_size=kernel_size,
+            n_heads=n_heads,
+            ge_dim=gin_channels  # 传递1024
+        )
 
         self.encoder2 = attentions.Encoder(
             hidden_channels,

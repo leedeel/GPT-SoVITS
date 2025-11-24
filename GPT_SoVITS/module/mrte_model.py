@@ -87,16 +87,6 @@ class MRTE1024(nn.Module):
         self.hidden_size = hidden_size
         self.ge_dim = ge_dim
         
-        # 如果期望的ge维度与实际hidden_size不同，创建适配层
-        if ge_dim != hidden_size:
-            print(f"MRTE: 创建风格嵌入适配层 {ge_dim} -> {hidden_size}")
-            self.ge_adapter = nn.Conv1d(ge_dim, hidden_size, 1)
-            # 初始化适配层
-            nn.init.xavier_uniform_(self.ge_adapter.weight)
-            if self.ge_adapter.bias is not None:
-                nn.init.zeros_(self.ge_adapter.bias)
-        else:
-            self.ge_adapter = None
 
     def forward(self, ssl_enc, ssl_mask, text, text_mask, ge, test=None):
         if ge == None:
