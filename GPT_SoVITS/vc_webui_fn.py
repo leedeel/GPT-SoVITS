@@ -222,7 +222,7 @@ def get_cleaned_text_final(text,language):
         phones, word2ph, norm_text = nonen_clean_text_inf(text, language)
     return phones, word2ph, norm_text
 
-
+resample_transform_dict = {}
 def resample(audio_tensor, sr0, sr1, device):
     global resample_transform_dict
     key = "%s-%s-%s" % (sr0, sr1, str(device))
