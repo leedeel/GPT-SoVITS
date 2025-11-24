@@ -43,8 +43,10 @@ def clean_sv_cn_model():
 
 def init_bigvgan():
     global bigvgan_model, hifigan_model, sv_cn_model
+    if bigvgan_model:
+        print("bigvgan_model is ready")
+        return
     from BigVGAN import bigvgan
-
     bigvgan_model = bigvgan.BigVGAN.from_pretrained(
         "%s/GPT_SoVITS/pretrained_models/models--nvidia--bigvgan_v2_24khz_100band_256x" % (now_dir,),
         use_cuda_kernel=False,
@@ -62,6 +64,9 @@ def init_bigvgan():
 
 def init_hifigan():
     global hifigan_model, bigvgan_model, sv_cn_model
+    if hifigan_model:
+        print("hifigan_model is ready")
+        return
     hifigan_model = Generator(
         initial_channel=100,
         resblock="1",
@@ -91,6 +96,9 @@ def init_hifigan():
 
 def init_sv_cn():
     global hifigan_model, bigvgan_model, sv_cn_model
+    if sv_cn_model:
+        print("sv_cn_model is ready")
+        return
     from sv import SV
     sv_cn_model = SV(device, is_half)
     clean_bigvgan_model()

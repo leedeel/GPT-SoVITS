@@ -16,13 +16,7 @@ from tools.i18n.i18n import I18nAuto
 from GPT_SoVITS.common import (init_device,init_dict_language,init_bert_model,init_ssl_model)
 from GPT_SoVITS.weights_manager import (change_gpt_weights,change_sovits_weights,DictToAttrRecursive)
 
-device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
-i18n=I18nAuto(language="zh_CN")
-dtype=torch.float16 if is_half == True else torch.float32
-dict_language=None
-bert_model=None
-ssl_model=None
-tokenizer=None
+i18n = I18nAuto(language="zh_CN")
 
 def init():
     """
@@ -30,8 +24,10 @@ def init():
     """
     print("init")
     global device,dict_language,tokenizer,bert_model,ssl_model
+    # 初始化设备参数
+    device = init_device()
     # 初始化语言字典
-    i18n,dict_language = init_dict_language(version=version)
+    dict_language = init_dict_language(version=version)
     # 初始化BERT模型
     tokenizer,bert_model = init_bert_model(bert_model_path=bert_path)
     # 初始化ssl模型
@@ -39,6 +35,7 @@ def init():
 
 # 初始化函数
 init()
+
 
 resample_transform_dict = {}
 
@@ -491,15 +488,60 @@ def get_tts_wav(
             
             if is_v2pro:
                 audio = vq_model.decode(
-                    pred_semantic, torch.LongTensor(phones2).to(device).unsqueeze(0), refers, speed=speed
+                    pred_semantic, torch.LongTensor(phones2).to(device).unsqueeze(0), refers, speed=speed, sv_emb=sv_emb
                 )[0][0]
             else:
                 audio = vq_model.decode(
                     pred_semantic, torch.LongTensor(phones2).to(device).unsqueeze(0), refers, speed=speed
                 )[0][0]
         else:
-            print("不处理v3")
-            pass
+            refer, audio_tensor = get_spepc(hps, ref_wav_path, dtype, device)
+            phoneme_ids0 = torch.LongTensor(phones1).to(device).unsqueeze(0)
+            phoneme_ids1 = torch.LongTensor(phones2).to(device).unsqueeze(0)
+            fea_ref, ge = vq_model.decode_encp(prompt.unsqueeze(0), phoneme_ids0, refer)
+            ref_audio, sr = torchaudio.load(ref_wav_path)
+            ref_audio = ref_audio.to(device).float()
+            if ref_audio.shape[0] == 2:
+                ref_audio = ref_audio.mean(0).unsqueeze(0)
+            tgt_sr = 24000 if model_version == "v3" else 32000
+            if sr != tgt_sr:
+                ref_audio = resample(ref_audio, sr, tgt_sr, device)
+            # print("ref_audio",ref_audio.abs().mean())
+            mel2 = mel_fn(ref_audio) if model_version == "v3" else mel_fn_v4(ref_audio)
+            mel2 = norm_spec(mel2)
+            T_min = min(mel2.shape[2], fea_ref.shape[2])
+            mel2 = mel2[:, :, :T_min]
+            fea_ref = fea_ref[:, :, :T_min]
+            Tref = 468 if model_version == "v3" else 500
+            Tchunk = 934 if model_version == "v3" else 1000
+            if T_min > Tref:
+                mel2 = mel2[:, :, -Tref:]
+                fea_ref = fea_ref[:, :, -Tref:]
+                T_min = Tref
+            chunk_len = Tchunk - T_min
+            mel2 = mel2.to(dtype)
+            fea_todo, ge = vq_model.decode_encp(pred_semantic, phoneme_ids1, refer, ge, speed)
+            cfm_resss = []
+            idx = 0
+            while 1:
+                fea_todo_chunk = fea_todo[:, :, idx : idx + chunk_len]
+                if fea_todo_chunk.shape[-1] == 0:
+                    break
+                idx += chunk_len
+                fea = torch.cat([fea_ref, fea_todo_chunk], 2).transpose(2, 1)
+                cfm_res = vq_model.cfm.inference(
+                    fea, torch.LongTensor([fea.size(1)]).to(fea.device), mel2, sample_steps, inference_cfg_rate=0
+                )
+                cfm_res = cfm_res[:, :, mel2.shape[2] :]
+                mel2 = cfm_res[:, :, -T_min:]
+                fea_ref = fea_todo_chunk[:, :, -T_min:]
+                cfm_resss.append(cfm_res)
+            cfm_res = torch.cat(cfm_resss, 2)
+            cfm_res = denorm_spec(cfm_res)
+            vocoder_model = bigvgan_model if model_version == "v3" else hifigan_model
+            with torch.inference_mode():
+                wav_gen = vocoder_model(cfm_res)
+                audio = wav_gen[0][0]  # .cpu().detach().numpy()
         max_audio = torch.abs(audio).max()  # 简单防止16bit爆音
         if max_audio > 1:
             audio = audio / max_audio

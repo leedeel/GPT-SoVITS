@@ -20,6 +20,10 @@ from GPT_SoVITS.module.models import SynthesizerTrn1024, SynthesizerTrnV3
 from process_ckpt import get_sovits_version_from_path_fast, load_sovits_new
 from api_interface.config import  is_half, pretrained_sovits_name
 from peft import LoraConfig, get_peft_model
+from GPT_SoVITS.base_model_helper import init_model_by_version,get_all_models
+from GPT_SoVITS.weights_manager import (change_gpt_weights,change_sovits_weights,DictToAttrRecursive)
+
+
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 i18n=I18nAuto(language="zh_CN")
@@ -219,165 +223,27 @@ def get_cleaned_text_final(text,language):
     return phones, word2ph, norm_text
 
 
-
-class DictToAttrRecursive(dict):
-    def __init__(self, input_dict):
-        super().__init__(input_dict)
-        for key, value in input_dict.items():
-            if isinstance(value, dict):
-                value = DictToAttrRecursive(value)
-            self[key] = value
-            setattr(self, key, value)
-
-    def __getattr__(self, item):
-        try:
-            return self[item]
-        except KeyError:
-            raise AttributeError(f"Attribute {item} not found")
-
-    def __setattr__(self, key, value):
-        if isinstance(value, dict):
-            value = DictToAttrRecursive(value)
-        super(DictToAttrRecursive, self).__setitem__(key, value)
-        super().__setattr__(key, value)
-
-    def __delattr__(self, item):
-        try:
-            del self[item]
-        except KeyError:
-            raise AttributeError(f"Attribute {item} not found")
-
-
-
-def change_sovits_weights(sovits_path:str):
-    """
-    更换SoVITS模型权重
-    @param sovits_path: SoVITS模型路径
-    @param device: 设备
-    """
-    # 获取SoviTS模型版本信息    
-    version, model_version, if_lora_v3 = get_sovits_version_from_path_fast(sovits_path)
-    print(f"待加载SoVITS模型信息:sovits_path:{sovits_path}, symbol_version:{version}, model_version:{model_version}, if_lora_v3:{if_lora_v3}")
-
-    # 检查LoRA权重对应的底模是否存在
-    path_sovits_v3 = pretrained_sovits_name["v3"]
-    path_sovits_v4 = pretrained_sovits_name["v4"]
-    is_exist_s2gv3 = os.path.exists(path_sovits_v3)
-    is_exist_s2gv4 = os.path.exists(path_sovits_v4)
-    is_exist = is_exist_s2gv3 if model_version == "v3" else is_exist_s2gv4
-    path_sovits = path_sovits_v3 if model_version == "v3" else path_sovits_v4
-    
-    # 检查LoRA权重对应的底模是否存在
-    if if_lora_v3 == True and is_exist == False:
-        info = path_sovits + "SoVITS %s" % model_version + "底模缺失，无法加载相应 LoRA 权重"
-        raise FileExistsError(info)
-    
-    # 加载SoVITS模型权重
-    dict_s2 = load_sovits_new(sovits_path)
-    hps = dict_s2["config"]
-    hps = DictToAttrRecursive(hps)
-    hps.model.semantic_frame_rate = "25hz"
-    if "enc_p.text_embedding.weight" not in dict_s2["weight"]:
-        hps.model.version = "v2"  # v3model,v2sybomls
-    elif dict_s2["weight"]["enc_p.text_embedding.weight"].shape[0] == 322:
-        hps.model.version = "v1"
-    else:
-        hps.model.version = "v2"
-    version = hps.model.version
-    if model_version not in {"v3", "v4"}:
-        if "Pro" not in model_version:
-            model_version = version
-        else:
-            hps.model.version = model_version
-        vq_model = SynthesizerTrn1024(
-            hps.data.filter_length // 2 + 1,
-            hps.train.segment_size // hps.data.hop_length,
-            n_speakers=hps.data.n_speakers,
-            **hps.model,
-        )
-    else:
-        hps.model.version = model_version
-        vq_model = SynthesizerTrnV3(
-            hps.data.filter_length // 2 + 1,
-            hps.train.segment_size // hps.data.hop_length,
-            n_speakers=hps.data.n_speakers,
-            **hps.model,
-        )
-    if "pretrained" not in sovits_path:
-        try:
-            del vq_model.enc_q
-        except:
-            pass
-    if is_half == True:
-        vq_model = vq_model.half().to(device)
-    else:
-        vq_model = vq_model.to(device)
-    vq_model.eval()
-    if if_lora_v3 == False:
-        print("loading sovits_%s" % model_version, vq_model.load_state_dict(dict_s2["weight"], strict=False))
-    else:
-        path_sovits = path_sovits_v3 if model_version == "v3" else path_sovits_v4
-        print(
-            "loading sovits_%spretrained_G" % model_version,
-            vq_model.load_state_dict(load_sovits_new(path_sovits)["weight"], strict=False),
-        )
-        lora_rank = dict_s2["lora_rank"]
-        lora_config = LoraConfig(
-            target_modules=["to_k", "to_q", "to_v", "to_out.0"],
-            r=lora_rank,
-            lora_alpha=lora_rank,
-            init_lora_weights=True,
-        )
-        vq_model.cfm = get_peft_model(vq_model.cfm, lora_config)
-        print("loading sovits_%s_lora%s" % (model_version, lora_rank))
-        vq_model.load_state_dict(dict_s2["weight"], strict=False)
-        vq_model.cfm = vq_model.cfm.merge_and_unload()
-        # torch.save(vq_model.state_dict(),"merge_win.pth")
-        vq_model.eval()
-
-    yield (
-        version, model_version, if_lora_v3, vq_model, hps
-    )
-
-
-resample_transform_dict = {}
-def _resample(audio_tensor, sr0, sr1, device):
-    """
-    重采样
-    audio_tensor: 音频数据
-    sr0: 原始采样率
-    sr1: 目标采样率
-    device: 设备
-    return:
-    audio_tensor: 重采样后的音频数据
-    """
-    print(f"重采样: {sr0} -> {sr1}")
+def resample(audio_tensor, sr0, sr1, device):
     global resample_transform_dict
     key = "%s-%s-%s" % (sr0, sr1, str(device))
     if key not in resample_transform_dict:
         resample_transform_dict[key] = torchaudio.transforms.Resample(sr0, sr1).to(device)
     return resample_transform_dict[key](audio_tensor)
 
-def get_spepc(hps, filename, dtype, device, is_v2pro=False,target_dim=None):
-    """
-    获取音频特征
-    hps: 超参数
-    filename: 音频文件路径
-    dtype: 数据类型
-    device: 设备
-    is_v2pro: 是否是 v2pro 版本
-    target_dim: 目标维度
-    return:
-    spec: 音频特征
-    audio: 音频数据
-    """
+
+def get_spepc(hps, filename, dtype, device, is_v2pro=False):
+    # audio = load_audio(filename, int(hps.data.sampling_rate))
+
+    # audio, sampling_rate = librosa.load(filename, sr=int(hps.data.sampling_rate))
+    # audio = torch.FloatTensor(audio)
+
     sr1 = int(hps.data.sampling_rate)
     audio, sr0 = torchaudio.load(filename)
     if sr0 != sr1:
         audio = audio.to(device)
         if audio.shape[0] == 2:
             audio = audio.mean(0).unsqueeze(0)
-        audio = _resample(audio, sr0, sr1, device)
+        audio = resample(audio, sr0, sr1, device)
     else:
         audio = audio.to(device)
         if audio.shape[0] == 2:
@@ -396,72 +262,55 @@ def get_spepc(hps, filename, dtype, device, is_v2pro=False,target_dim=None):
     )
     spec = spec.to(dtype)
     if is_v2pro == True:
-        audio = _resample(audio, sr1, 16000, device).to(dtype)
-     # 提取特征后检查维度
-    if target_dim is not None and spec.shape[1] != target_dim:
-        if spec.shape[1] > target_dim:
-            spec = spec[:, :target_dim, :]
-        else:
-            pass
+        audio = resample(audio, sr1, 16000, device).to(dtype)
     return spec, audio
 
 
+def get_phones_and_bert(text, language, version, final=False):
+    text = re.sub(r' {2,}', ' ', text)
+    textlist = []
+    langlist = []
+    # 默认中文
+    for tmp in LangSegmenter.getTexts(text,"zh"):
+        langlist.append(tmp["lang"])
+        textlist.append(tmp["text"])
+    print(textlist)
+    print(langlist)
+    phones_list = []
+    bert_list = []
+    norm_text_list = []
+    for i in range(len(textlist)):
+        lang = langlist[i]
+        phones, word2ph, norm_text = clean_text_inf(textlist[i], lang, version)
+        bert = get_bert_inf(phones, word2ph, norm_text, lang)
+        phones_list.append(phones)
+        norm_text_list.append(norm_text)
+        bert_list.append(bert)
+    bert = torch.cat(bert_list, dim=1)
+    phones = sum(phones_list, [])
+    norm_text = "".join(norm_text_list)
 
-def check_loaded_model_compatibility(vq_model):
-    """检查已加载模型的兼容性"""
-    print("=== 已加载模型检查 ===")
-    
-    # 检查模型的状态字典键名
-    state_dict = vq_model.state_dict()
-    model_keys = list(state_dict.keys())
-    
-    # 查找与MRTE和投影相关的键
-    mrte_keys = [k for k in model_keys if 'mrte' in k]
-    print(f"MRTE相关键 ({len(mrte_keys)}): {mrte_keys[:10]}...")  # 只显示前10个
-    
-    # 检查是否有投影层
-    proj_keys = [k for k in model_keys if 'proj' in k or 'linear' in k]
-    print(f"投影层相关键 ({len(proj_keys)}): {proj_keys[:10]}...")
-    
-    # 特别关注风格嵌入的投影
-    style_proj_keys = [k for k in proj_keys if 'style' in k or 'ref' in k or 'enc' in k]
-    if style_proj_keys:
-        print(f"风格嵌入投影层: {style_proj_keys}")
-    else:
-        print("未找到明确的风格嵌入投影层")
-    
-    # 检查MRTE层的输入维度
-    if hasattr(vq_model, 'enc_p') and hasattr(vq_model.enc_p, 'mrte'):
-        mrte = vq_model.enc_p.mrte
-        # 尝试获取MRTE的输入维度
-        if hasattr(mrte, 'in_dim'):
-            print(f"MRTE输入维度: {mrte.in_dim}")
-        else:
-            # 通过其第一层的权重推断
-            for name, param in mrte.named_parameters():
-                if 'weight' in name and param.dim() == 2:
-                    print(f"MRTE层 '{name}' 权重形状: {param.shape}")
-                    # 通常权重矩阵的形状为 (输出维度, 输入维度)
-                    # 如果这是第一层，那么输入维度就是param.shape[1]
-                    break
+    if not final and len(phones) < 6:
+        return get_phones_and_bert("." + text, language, version, final=True)
 
+    return phones, bert.to(dtype), norm_text
 
 
 
 @torch.no_grad()
 def get_vc_wav(
     sovits_path:str,
+    gpt_path:str,
     source_wav_path:str,
     source_wav_text:str, 
     language:str, 
-    ref_wav_path:str, 
-    noise_scale=0.5):
+    target_wav_path:str):
     """ Voice Conversion
     sovits_path: sovits模型路径
     source_wav_path: 待变声的源音频
     source_wav_text: 对应文本
     language: 对应语言
-    ref_wav_path: 目标人声
+    target_wav_path: 目标人声
     noise_scale: 噪声比例
     """
     language = dict_language[language]
@@ -471,77 +320,56 @@ def get_vc_wav(
     # 加载SoVITS模型权重
     ( version, model_version, if_lora_v3, vq_model, hps) = next(change_sovits_weights(sovits_path))
     print("使用SoVITS模型版本:", version, model_version, if_lora_v3)
-    check_loaded_model_compatibility(vq_model=vq_model)
-    print("=== 模型配置检查 ===")
-    print(f"模型版本: {model_version}")
-    print(f"hps.gin_channels: {getattr(hps, 'gin_channels', '未找到')}")
-    print(f"hps.model.gin_channels: {getattr(hps.model, 'gin_channels', '未找到')}")
-
-    # 检查MRTE模型的期望维度
-    if hasattr(vq_model.enc_p, 'mrte'):
-        mrte = vq_model.enc_p.mrte
-        print(f"MRTE输入维度: {getattr(mrte, 'in_dim', '未知')}")
-        if hasattr(mrte, 'cross_attention'):
-            print("交叉注意力层存在")
-    
+    # 加载GPT模型权重
+    (hz, max_sec, t2s_model) = next(change_gpt_weights(gpt_path))
+    # 加载基础模型
+    init_model_by_version(version=model_version)
+    hifigan_model, bigvgan_model, sv_cn_model = get_all_models()
     
     is_v2pro = model_version in {"v2Pro", "v2ProPlus"}
-    (spec, audio_len) = get_spepc(hps=hps, 
-                                  filename=ref_wav_path,
-                                  dtype=dtype,
-                                  device=device,
-                                  is_v2pro=is_v2pro)
-    # === 修复2: 频谱维度截断 ===
-    # if model_version != "v1":
-    #     if spec.dim() == 3 and spec.shape[1] > 704:
-    #         print(f"截断频谱维度: {spec.shape[1]} -> 704")
-    #         spec = spec[:, :704, :]
+    refers = []
+    sv_emb = []
+
+    # 取原始音频特征
+    (source_spec, source_audio) = get_spepc(hps=hps, 
+                                            filename=source_wav_path,
+                                            dtype=dtype,
+                                            device=device,
+                                            is_v2pro=is_v2pro)
     
-    codes = get_code_from_wav(source_wav_path, vq_model)[None, None]
-    # 确保codes在正确的设备上
-    codes = codes.to(device)
+    # 使用目标说话人的音色特征
+    target_spec, target_audio = get_spepc(hps=hps, filename=target_wav_path, 
+                                          dtype=dtype, device=device, is_v2pro=is_v2pro)
+    target_sv_emb = sv_cn_model.compute_embedding3(target_audio)
+    sv_emb.append(target_sv_emb)
     
-    ge = vq_model.ref_enc(spec)
+    # 3. 从源音频提取语义内容
+    # 3. 从源音频提取语义内容
+    ssl_content = ssl_model.model(source_audio.unsqueeze(0))["last_hidden_state"].transpose(1, 2)
+    codes = vq_model.extract_latent(ssl_content)
+    prompt_semantic = codes[0, 0]
     
-    quantized = vq_model.quantizer.decode(codes)
-    if hps.model.semantic_frame_rate == "25hz":
-        quantized = F.interpolate(
-            quantized, size=int(quantized.shape[-1] * 2), mode="nearest"
-        )
-    # 确保所有输入张量都在模型设备上
-    quantized = quantized.to(device)
-    ge = ge.to(device)
+    # 使用目标说话人的音色特征
+    audio = vq_model.decode(
+        prompt_semantic.unsqueeze(0),
+        torch.LongTensor(phones).to(device).unsqueeze(0),
+        [source_spec],  # 使用源音频的声学特征保持韵律
+        speed=1.0,
+        sv_emb=[target_sv_emb]  # 使用目标说话人的音色
+    )[0][0]
     
-    # 确保这些张量也在正确的设备上
-    quantized_length = torch.LongTensor([quantized.shape[-1]]).to(device)
-    phones_tensor = torch.LongTensor(phones)[None].to(device)
-    phones_length = torch.LongTensor([len(phones)]).to(device)
-    
-    
-    print("=== 调试信息 ===")
-    print(f"quantized 形状: {quantized.shape}")
-    print(f"ge 形状: {ge.shape}")
-    print(f"phones 长度: {len(phones)}")
-    print(f"quantized 长度张量: {torch.LongTensor([quantized.shape[-1]])}")
-    print(f"phones 张量形状: {torch.LongTensor(phones)[None].shape}")
-    print(f"phones 长度张量: {torch.LongTensor([len(phones)])}")
-    # 尝试调用 enc_p
-    try:
-        _, m_p, logs_p, y_mask = vq_model.enc_p(
-            quantized, quantized_length, phones_tensor, phones_length, ge
-        )
-    except RuntimeError as e:
-        print(f"enc_p 调用失败: {e}")
-        raise e
-    # _, m_p, logs_p, y_mask = vq_model.enc_p(
-    #     quantized, quantized_length, phones_tensor, phones_length, ge
-    # )
-    z_p = m_p + torch.randn_like(m_p) * torch.exp(logs_p) * noise_scale
-    z = vq_model.flow(z_p, y_mask, g=ge, reverse=True)
-    o = vq_model.dec((z * y_mask)[:, :, :], g=ge)  # [B, D=1, T], torch.float32 (-1, 1)
-    audio = o.detach().cpu().numpy()[0, 0]    
-    max_audio = np.abs(audio).max()  # 简单防止16bit爆音
+    max_audio = torch.abs(audio).max()  # 简单防止16bit爆音
     if max_audio > 1:
-        audio /= max_audio
-    yield hps.data.sampling_rate, (audio * 32768).astype(np.int16)
+        audio = audio / max_audio
+    audio_opt = [audio]
+    audio_opt = torch.cat(audio_opt, 0)  # np.concatenate
+    if model_version in {"v1", "v2", "v2Pro", "v2ProPlus"}:
+        opt_sr = 32000
+    elif model_version == "v3":
+        opt_sr = 24000
+    else:
+        opt_sr = 48000  # v4
+    audio_opt = audio_opt.cpu().detach().numpy()
+    yield opt_sr, (audio_opt * 32767).astype(np.int16)
+    
     

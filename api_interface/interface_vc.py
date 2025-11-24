@@ -26,9 +26,10 @@ def cleanup_memory():
 
 def get_vc_wav_api(
     sovits_path:str,
+    gpt_path:str,
     source_wav_file: gr.Audio,
     source_wav_text:str, 
-    ref_wav_file:gr.Audio,
+    target_wav_file:gr.Audio,
     language:str = "中文", 
     noise_scale:float=0.5
 ) -> Dict[str, Any]:
@@ -40,7 +41,7 @@ def get_vc_wav_api(
         sovits_path: SoVITS模型路径
         source_wav_file: 源音频文件 (gradio.Audio 对象)
         source_wav_text: 源音频文本
-        ref_wav_file: 参考音频文件 (gradio.Audio 对象)
+        target_wav_file: 参考音频文件 (gradio.Audio 对象)
         language: 参考音频语言
         noise_scale: 噪声比例
     
@@ -68,27 +69,27 @@ def get_vc_wav_api(
             source_wav_path = source_wav_file
             
         # 从 gradio.Audio 对象获取音频数据
-        if isinstance(ref_wav_file, tuple):
+        if isinstance(target_wav_file, tuple):
             # gradio.Audio 返回 (sample_rate, audio_data)
-            ref_wav_sample_rate, ref_wav_audio_data = ref_wav_file
-            ref_wav_path = save_temp_audio(ref_wav_sample_rate, ref_wav_audio_data)
+            target_wav_sample_rate, target_wav_audio_data = target_wav_file
+            target_wav_path = save_temp_audio(target_wav_sample_rate, target_wav_audio_data)
         else:
             # 如果是文件路径
-            ref_wav_path = ref_wav_file
+            target_wav_path = target_wav_file
         
         # 这里我们重构处理逻辑，但保持核心算法
         opt_sr,audio_data = next(get_vc_wav(
             sovits_path=sovits_path,
+            gpt_path=gpt_path,
             source_wav_path=source_wav_path,
             source_wav_text=source_wav_text,
-            ref_wav_path=ref_wav_path,
+            target_wav_path=target_wav_path,
             language=language,
-            noise_scale=noise_scale
         ))
         
         # 清理临时文件
-        if isinstance(ref_wav_file, tuple) and os.path.exists(ref_wav_path):
-            os.remove(ref_wav_path)
+        if isinstance(target_wav_file, tuple) and os.path.exists(target_wav_path):
+            os.remove(target_wav_path)
         if isinstance(source_wav_file, tuple) and os.path.exists(source_wav_path):
             os.remove(source_wav_path)
         # 清理所有内存
@@ -176,6 +177,13 @@ def create_vc_app():
                 interactive=True,
                 scale=14,
             ),
+            gr.Dropdown(
+                label=i18n("GPT模型列表"),
+                choices=GPT_names,
+                value=GPT_names[0],
+                interactive=True,
+                scale=14,
+            ),
             gr.Audio(
                 label="源音频文件",
                 type="filepath"
@@ -185,7 +193,7 @@ def create_vc_app():
                 placeholder="请输入源音频文本...",
             ),
             gr.Audio(
-                label="参考音频文件",
+                label="目标音色音频文件",
                 type="filepath"
             ),
             gr.Dropdown(
