@@ -281,6 +281,26 @@ def get_spepc(hps, filename, dtype, device, is_v2pro=False,target_dim=None):
     return spec, audio
 
 
+def check_model_compatibility(model_path):
+    """检查模型文件与代码的兼容性"""
+    checkpoint = torch.load(model_path, map_location='cpu')
+    
+    print("=== 模型文件检查 ===")
+    if 'config' in checkpoint:
+        config = checkpoint['config']
+        if 'model' in config and 'gin_channels' in config['model']:
+            print(f"模型文件中的 gin_channels: {config['model']['gin_channels']}")
+    
+    # 检查权重键名，寻找维度不匹配的线索
+    model_keys = list(checkpoint['model'].keys()) if 'model' in checkpoint else list(checkpoint.keys())
+    mrte_keys = [k for k in model_keys if 'mrte' in k]
+    print(f"MRTE相关键: {mrte_keys[:5]}...")  # 只显示前5个
+    
+    # 检查是否有投影层权重
+    proj_keys = [k for k in model_keys if 'proj' in k or 'linear' in k]
+    print(f"投影层相关键: {proj_keys[:5]}...")
+
+
 
 @torch.no_grad()
 def get_vc_wav(
@@ -301,6 +321,7 @@ def get_vc_wav(
     language = dict_language[language]
 
     phones, word2ph, norm_text = get_cleaned_text_final(source_wav_text, language)
+    check_model_compatibility(sovits_path)
     
     # 加载SoVITS模型权重
     ( version, model_version, if_lora_v3, vq_model, hps) = next(change_sovits_weights(sovits_path))
