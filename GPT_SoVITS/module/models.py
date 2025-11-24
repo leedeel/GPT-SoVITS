@@ -1120,7 +1120,7 @@ class SynthesizerTrn(nn.Module):
 
     @torch.no_grad()
     def decode(self, codes, text, refer, noise_scale=0.5, speed=1, sv_emb=None):
-        def get_ge(refer, tmp_sv_emb):
+        def get_ge(refer, sv_emb):
             ge = None
             if refer is not None:
                 refer_lengths = torch.LongTensor([refer.size(2)]).to(refer.device)
@@ -1129,16 +1129,16 @@ class SynthesizerTrn(nn.Module):
                     ge = self.ref_enc(refer * refer_mask, refer_mask)
                 else:
                     ge = self.ref_enc(refer[:, :704] * refer_mask, refer_mask)
-                if tmp_sv_emb is not None:
-                    _sv_emb = self.sv_emb(tmp_sv_emb)  # B*20480->B*512
-                    ge += _sv_emb.unsqueeze(-1)
+                if self.is_v2pro:
+                    sv_emb = self.sv_emb(sv_emb)  # B*20480->B*512
+                    ge += sv_emb.unsqueeze(-1)
                     ge = self.prelu(ge)
             return ge
 
         if type(refer) == list:
             ges = []
             for idx, _refer in enumerate(refer):
-                ge = get_ge(_refer, sv_emb[idx] if sv_emb else None)
+                ge = get_ge(_refer, sv_emb[idx] if self.is_v2pro else None)
                 ges.append(ge)
             ge = torch.stack(ges, 0).mean(0)
         else:
