@@ -233,7 +233,7 @@ def _resample(audio_tensor, sr0, sr1, device):
         resample_transform_dict[key] = torchaudio.transforms.Resample(sr0, sr1).to(device)
     return resample_transform_dict[key](audio_tensor)
 
-def get_spepc(hps, filename, dtype, device, is_v2pro=False):
+def get_spepc(hps, filename, dtype, device, is_v2pro=False,target_dim=None):
     """
     获取音频特征
     hps: 超参数
@@ -241,6 +241,7 @@ def get_spepc(hps, filename, dtype, device, is_v2pro=False):
     dtype: 数据类型
     device: 设备
     is_v2pro: 是否是 v2pro 版本
+    target_dim: 目标维度
     return:
     spec: 音频特征
     audio: 音频数据
@@ -271,10 +272,12 @@ def get_spepc(hps, filename, dtype, device, is_v2pro=False):
     spec = spec.to(dtype)
     if is_v2pro == True:
         audio = _resample(audio, sr1, 16000, device).to(dtype)
-    # 添加详细的形状信息
-    print(f"Raw audio shape: {audio.shape}")
-    print(f"Extracted spec shape: {spec.shape}")
-    print(f"Spec stats - min: {spec.min()}, max: {spec.max()}, mean: {spec.mean()}")
+     # 提取特征后检查维度
+    if target_dim is not None and spec.shape[1] != target_dim:
+        if spec.shape[1] > target_dim:
+            spec = spec[:, :target_dim, :]
+        else:
+            pass
     return spec, audio
 
 
@@ -309,6 +312,25 @@ def get_vc_wav(
                                   device=device,
                                   is_v2pro=is_v2pro)
     codes = get_code_from_wav(source_wav_path,vq_model)[None, None]  # 必须是 3D, [n_q, B, T]
+    print(f"模型版本: {model_version}")
+    print(f"频谱形状: {spec.shape}")
+    print(f"vq_model是否有version属性: {hasattr(vq_model, 'version')}")
+    if hasattr(vq_model, 'version'):
+        print(f"vq_model.version: {vq_model.version}")
+    
+    # 根据模型版本调整输入维度
+    if model_version != "v1":
+        # 非v1版本需要704维输入
+        if spec.dim() == 3:  # [B, D, T] 形状
+            if spec.shape[1] > 704:  # 检查特征维度
+                print(f"截断频谱维度: {spec.shape[1]} -> 704")
+                spec = spec[:, :704, :]  # 取前704个特征维度
+            elif spec.shape[1] < 704:
+                print(f"警告: 频谱维度不足: {spec.shape[1]} < 704")
+                # 可以考虑填充或使用其他处理
+        else:
+            print(f"警告: 意外的频谱形状: {spec.shape}")
+    
     ge = vq_model.ref_enc(spec)  # [B, D, T/1] 
     quantized = vq_model.quantizer.decode(codes)  # [B, D, T]
     if hps.model.semantic_frame_rate == "25hz":
