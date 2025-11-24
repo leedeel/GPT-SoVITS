@@ -5,7 +5,12 @@ from transformers import AutoModelForMaskedLM, AutoTokenizer
 from GPT_SoVITS.feature_extractor import cnhubert
 from api_interface.config import  is_half
 
-global device,i18n,dict_language,bert_model,ssl_model,vq_model,hps,t2s_model,tokenizer
+device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
+i18n=I18nAuto(language="zh_CN")
+dict_language=None
+bert_model=None
+ssl_model=None
+tokenizer=None
 
 def init_device():
     """
