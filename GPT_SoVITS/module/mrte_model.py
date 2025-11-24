@@ -66,6 +66,63 @@ class MRTE(nn.Module):
         return x
 
 
+class MRTE1024(nn.Module):
+    def __init__(
+        self,
+        content_enc_channels=192,
+        hidden_size=1024,
+        out_channels=192,
+        kernel_size=5,
+        n_heads=4,
+        ge_layer=2,
+        ge_dim=1024  # 新增参数，指定期望的风格嵌入维度
+    ):
+        super(MRTE, self).__init__()
+        self.cross_attention = MultiHeadAttention(hidden_size, hidden_size, n_heads)
+        self.c_pre = nn.Conv1d(content_enc_channels, hidden_size, 1)
+        self.text_pre = nn.Conv1d(content_enc_channels, hidden_size, 1)
+        self.c_post = nn.Conv1d(hidden_size, out_channels, 1)
+        
+        # === 新增：维度适配层 ===
+        self.hidden_size = hidden_size
+        self.ge_dim = ge_dim
+        
+        # 如果期望的ge维度与实际hidden_size不同，创建适配层
+        if ge_dim != hidden_size:
+            print(f"MRTE: 创建风格嵌入适配层 {ge_dim} -> {hidden_size}")
+            self.ge_adapter = nn.Conv1d(ge_dim, hidden_size, 1)
+            # 初始化适配层
+            nn.init.xavier_uniform_(self.ge_adapter.weight)
+            if self.ge_adapter.bias is not None:
+                nn.init.zeros_(self.ge_adapter.bias)
+        else:
+            self.ge_adapter = None
+
+    def forward(self, ssl_enc, ssl_mask, text, text_mask, ge, test=None):
+        if ge == None:
+            ge = 0
+
+        attn_mask = text_mask.unsqueeze(2) * ssl_mask.unsqueeze(-1)
+
+        ssl_enc = self.c_pre(ssl_enc * ssl_mask)
+        text_enc = self.text_pre(text * text_mask)
+        if test != None:
+            if test == 0:
+                x = self.cross_attention(ssl_enc * ssl_mask, text_enc * text_mask, attn_mask) + ssl_enc + ge
+            elif test == 1:
+                x = ssl_enc + ge
+            elif test == 2:
+                x = self.cross_attention(ssl_enc * 0 * ssl_mask, text_enc * text_mask, attn_mask) + ge
+            else:
+                raise ValueError("test should be 0,1,2")
+        else:
+            x = self.cross_attention(ssl_enc * ssl_mask, text_enc * text_mask, attn_mask) + ssl_enc + ge
+        x = self.c_post(x * ssl_mask)
+        return x
+
+
+
+
 class SpeakerEncoder(torch.nn.Module):
     def __init__(
         self,

@@ -14,7 +14,12 @@ from tools.i18n.i18n import I18nAuto
 from GPT_SoVITS.module.mel_processing import spectrogram_torch
 from api_interface.config import version, is_half, punctuation,cnhubert_path, bert_path
 from GPT_SoVITS.common import (init_device,init_dict_language,init_bert_model,init_ssl_model,get_bert_feature)
-from GPT_SoVITS.weights_manager import (change_sovits_weights)
+import os
+import torch
+from GPT_SoVITS.module.models import SynthesizerTrn1024, SynthesizerTrnV3
+from process_ckpt import get_sovits_version_from_path_fast, load_sovits_new
+from api_interface.config import  is_half, pretrained_sovits_name
+from peft import LoraConfig, get_peft_model
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 i18n=I18nAuto(language="zh_CN")
@@ -214,6 +219,127 @@ def get_cleaned_text_final(text,language):
     return phones, word2ph, norm_text
 
 
+
+class DictToAttrRecursive(dict):
+    def __init__(self, input_dict):
+        super().__init__(input_dict)
+        for key, value in input_dict.items():
+            if isinstance(value, dict):
+                value = DictToAttrRecursive(value)
+            self[key] = value
+            setattr(self, key, value)
+
+    def __getattr__(self, item):
+        try:
+            return self[item]
+        except KeyError:
+            raise AttributeError(f"Attribute {item} not found")
+
+    def __setattr__(self, key, value):
+        if isinstance(value, dict):
+            value = DictToAttrRecursive(value)
+        super(DictToAttrRecursive, self).__setitem__(key, value)
+        super().__setattr__(key, value)
+
+    def __delattr__(self, item):
+        try:
+            del self[item]
+        except KeyError:
+            raise AttributeError(f"Attribute {item} not found")
+
+
+
+def change_sovits_weights(sovits_path:str):
+    """
+    更换SoVITS模型权重
+    @param sovits_path: SoVITS模型路径
+    @param device: 设备
+    """
+    # 获取SoviTS模型版本信息    
+    version, model_version, if_lora_v3 = get_sovits_version_from_path_fast(sovits_path)
+    print(f"待加载SoVITS模型信息:sovits_path:{sovits_path}, symbol_version:{version}, model_version:{model_version}, if_lora_v3:{if_lora_v3}")
+
+    # 检查LoRA权重对应的底模是否存在
+    path_sovits_v3 = pretrained_sovits_name["v3"]
+    path_sovits_v4 = pretrained_sovits_name["v4"]
+    is_exist_s2gv3 = os.path.exists(path_sovits_v3)
+    is_exist_s2gv4 = os.path.exists(path_sovits_v4)
+    is_exist = is_exist_s2gv3 if model_version == "v3" else is_exist_s2gv4
+    path_sovits = path_sovits_v3 if model_version == "v3" else path_sovits_v4
+    
+    # 检查LoRA权重对应的底模是否存在
+    if if_lora_v3 == True and is_exist == False:
+        info = path_sovits + "SoVITS %s" % model_version + "底模缺失，无法加载相应 LoRA 权重"
+        raise FileExistsError(info)
+    
+    # 加载SoVITS模型权重
+    dict_s2 = load_sovits_new(sovits_path)
+    hps = dict_s2["config"]
+    hps = DictToAttrRecursive(hps)
+    hps.model.semantic_frame_rate = "25hz"
+    if "enc_p.text_embedding.weight" not in dict_s2["weight"]:
+        hps.model.version = "v2"  # v3model,v2sybomls
+    elif dict_s2["weight"]["enc_p.text_embedding.weight"].shape[0] == 322:
+        hps.model.version = "v1"
+    else:
+        hps.model.version = "v2"
+    version = hps.model.version
+    if model_version not in {"v3", "v4"}:
+        if "Pro" not in model_version:
+            model_version = version
+        else:
+            hps.model.version = model_version
+        vq_model = SynthesizerTrn1024(
+            hps.data.filter_length // 2 + 1,
+            hps.train.segment_size // hps.data.hop_length,
+            n_speakers=hps.data.n_speakers,
+            **hps.model,
+        )
+    else:
+        hps.model.version = model_version
+        vq_model = SynthesizerTrnV3(
+            hps.data.filter_length // 2 + 1,
+            hps.train.segment_size // hps.data.hop_length,
+            n_speakers=hps.data.n_speakers,
+            **hps.model,
+        )
+    if "pretrained" not in sovits_path:
+        try:
+            del vq_model.enc_q
+        except:
+            pass
+    if is_half == True:
+        vq_model = vq_model.half().to(device)
+    else:
+        vq_model = vq_model.to(device)
+    vq_model.eval()
+    if if_lora_v3 == False:
+        print("loading sovits_%s" % model_version, vq_model.load_state_dict(dict_s2["weight"], strict=False))
+    else:
+        path_sovits = path_sovits_v3 if model_version == "v3" else path_sovits_v4
+        print(
+            "loading sovits_%spretrained_G" % model_version,
+            vq_model.load_state_dict(load_sovits_new(path_sovits)["weight"], strict=False),
+        )
+        lora_rank = dict_s2["lora_rank"]
+        lora_config = LoraConfig(
+            target_modules=["to_k", "to_q", "to_v", "to_out.0"],
+            r=lora_rank,
+            lora_alpha=lora_rank,
+            init_lora_weights=True,
+        )
+        vq_model.cfm = get_peft_model(vq_model.cfm, lora_config)
+        print("loading sovits_%s_lora%s" % (model_version, lora_rank))
+        vq_model.load_state_dict(dict_s2["weight"], strict=False)
+        vq_model.cfm = vq_model.cfm.merge_and_unload()
+        # torch.save(vq_model.state_dict(),"merge_win.pth")
+        vq_model.eval()
+
+    yield (
+        version, model_version, if_lora_v3, vq_model, hps
+    )
+
+
 resample_transform_dict = {}
 def _resample(audio_tensor, sr0, sr1, device):
     """
@@ -342,7 +468,6 @@ def get_vc_wav(
 
     phones, word2ph, norm_text = get_cleaned_text_final(source_wav_text, language)
     
-    
     # 加载SoVITS模型权重
     ( version, model_version, if_lora_v3, vq_model, hps) = next(change_sovits_weights(sovits_path))
     print("使用SoVITS模型版本:", version, model_version, if_lora_v3)
@@ -367,10 +492,10 @@ def get_vc_wav(
                                   device=device,
                                   is_v2pro=is_v2pro)
     # === 修复2: 频谱维度截断 ===
-    if model_version != "v1":
-        if spec.dim() == 3 and spec.shape[1] > 704:
-            print(f"截断频谱维度: {spec.shape[1]} -> 704")
-            spec = spec[:, :704, :]
+    # if model_version != "v1":
+    #     if spec.dim() == 3 and spec.shape[1] > 704:
+    #         print(f"截断频谱维度: {spec.shape[1]} -> 704")
+    #         spec = spec[:, :704, :]
     
     codes = get_code_from_wav(source_wav_path, vq_model)[None, None]
     # 确保codes在正确的设备上
@@ -400,10 +525,6 @@ def get_vc_wav(
     print(f"quantized 长度张量: {torch.LongTensor([quantized.shape[-1]])}")
     print(f"phones 张量形状: {torch.LongTensor(phones)[None].shape}")
     print(f"phones 长度张量: {torch.LongTensor([len(phones)])}")
-    # 检查模型结构
-    if hasattr(vq_model.enc_p, 'mrte'):
-        if hasattr(vq_model.enc_p.mrte, 'cross_attention'):
-            print("MRTE 模型存在交叉注意力层")
     # 尝试调用 enc_p
     try:
         _, m_p, logs_p, y_mask = vq_model.enc_p(
