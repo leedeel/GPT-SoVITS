@@ -305,6 +305,19 @@ def get_vc_wav(
     # 加载SoVITS模型权重
     ( version, model_version, if_lora_v3, vq_model, hps) = next(change_sovits_weights(sovits_path))
     print("使用SoVITS模型版本:", version, model_version, if_lora_v3)
+    print("=== 模型配置检查 ===")
+    print(f"模型版本: {model_version}")
+    print(f"hps.gin_channels: {getattr(hps, 'gin_channels', '未找到')}")
+    print(f"hps.model.gin_channels: {getattr(hps.model, 'gin_channels', '未找到')}")
+
+    # 检查MRTE模型的期望维度
+    if hasattr(vq_model.enc_p, 'mrte'):
+        mrte = vq_model.enc_p.mrte
+        print(f"MRTE输入维度: {getattr(mrte, 'in_dim', '未知')}")
+        if hasattr(mrte, 'cross_attention'):
+            print("交叉注意力层存在")
+    
+    
     is_v2pro = model_version in {"v2Pro", "v2ProPlus"}
     (spec, audio_len) = get_spepc(hps=hps, 
                                   filename=ref_wav_path,
