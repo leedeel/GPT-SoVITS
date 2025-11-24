@@ -188,25 +188,4 @@ if not GPU_INFOS:
 infer_device = max(tmp, key=lambda x: (x[2], x[3]))[0]
 is_half = any(dtype == torch.float16 for _, dtype, _, _ in tmp)
 
-
-class Config:
-    def __init__(self):
-        self.sovits_path = sovits_path
-        self.gpt_path = gpt_path
-        self.is_half = is_half
-
-        self.cnhubert_path = cnhubert_path
-        self.bert_path = bert_path
-        self.pretrained_sovits_path = pretrained_sovits_path
-        self.pretrained_gpt_path = pretrained_gpt_path
-
-        self.exp_root = exp_root
-        self.python_exec = python_exec
-        self.infer_device = infer_device
-
-        self.webui_port_main = webui_port_main
-        self.webui_port_uvr5 = webui_port_uvr5
-        self.webui_port_infer_tts = webui_port_infer_tts
-        self.webui_port_subfix = webui_port_subfix
-
-        self.api_port = api_port
+punctuation = set(["!", "?", "…", ",", ".", "-", " "])

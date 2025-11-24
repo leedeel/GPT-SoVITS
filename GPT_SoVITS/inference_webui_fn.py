@@ -6,224 +6,35 @@ import gradio as gr
 import torch
 import torchaudio
 from GPT_SoVITS.text.LangSegmenter import LangSegmenter
-from api_interface.config import version, is_half, pretrained_sovits_name, cnhubert_path, bert_path
+from api_interface.config import version, is_half, punctuation, cnhubert_path, bert_path
 import librosa
 import numpy as np
-from GPT_SoVITS.feature_extractor import cnhubert
-from transformers import AutoModelForMaskedLM, AutoTokenizer
-
-
-from GPT_SoVITS.module.models import Generator, SynthesizerTrn, SynthesizerTrnV3
-
-
 from time import time as ttime
-
-from GPT_SoVITS.AR.models.t2s_lightning_module import Text2SemanticLightningModule
-from peft import LoraConfig, get_peft_model
 from GPT_SoVITS.text import cleaned_text_to_sequence
 from GPT_SoVITS.text.cleaner import clean_text
-
-from tools.assets import css, js, top_html
-from tools.i18n.i18n import I18nAuto, scan_language_list
+from tools.i18n.i18n import I18nAuto
+from GPT_SoVITS.common import (init_device,init_dict_language,init_bert_model,init_ssl_model)
+from GPT_SoVITS.weights_manager import (change_gpt_weights,change_sovits_weights,DictToAttrRecursive)
 
 i18n = I18nAuto(language="zh_CN")
 
-punctuation = set(["!", "?", "…", ",", ".", "-", " "])
-
-# os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'  # 确保直接启动推理UI时也能够设置。
-
-if torch.cuda.is_available():
-    device = "cuda"
-else:
-    device = "cpu"
-
-dict_language_v1 = {
-    i18n("中文"): "all_zh",  # 全部按中文识别
-    i18n("英文"): "en",  # 全部按英文识别#######不变
-    i18n("日文"): "all_ja",  # 全部按日文识别
-    i18n("中英混合"): "zh",  # 按中英混合识别####不变
-    i18n("日英混合"): "ja",  # 按日英混合识别####不变
-    i18n("多语种混合"): "auto",  # 多语种启动切分识别语种
-}
-dict_language_v2 = {
-    i18n("中文"): "all_zh",  # 全部按中文识别
-    i18n("英文"): "en",  # 全部按英文识别#######不变
-    i18n("日文"): "all_ja",  # 全部按日文识别
-    i18n("粤语"): "all_yue",  # 全部按中文识别
-    i18n("韩文"): "all_ko",  # 全部按韩文识别
-    i18n("中英混合"): "zh",  # 按中英混合识别####不变
-    i18n("日英混合"): "ja",  # 按日英混合识别####不变
-    i18n("粤英混合"): "yue",  # 按粤英混合识别####不变
-    i18n("韩英混合"): "ko",  # 按韩英混合识别####不变
-    i18n("多语种混合"): "auto",  # 多语种启动切分识别语种
-    i18n("多语种混合(粤语)"): "auto_yue",  # 多语种启动切分识别语种
-}
-dict_language = dict_language_v1 if version == "v1" else dict_language_v2
-print("使用语言字典:", dict_language)
-
-tokenizer = AutoTokenizer.from_pretrained(bert_path)
-bert_model = AutoModelForMaskedLM.from_pretrained(bert_path)
-if is_half == True:
-    bert_model = bert_model.half().to(device)
-else:
-    bert_model = bert_model.to(device)
-
-
-
-class DictToAttrRecursive(dict):
-    def __init__(self, input_dict):
-        super().__init__(input_dict)
-        for key, value in input_dict.items():
-            if isinstance(value, dict):
-                value = DictToAttrRecursive(value)
-            self[key] = value
-            setattr(self, key, value)
-
-    def __getattr__(self, item):
-        try:
-            return self[item]
-        except KeyError:
-            raise AttributeError(f"Attribute {item} not found")
-
-    def __setattr__(self, key, value):
-        if isinstance(value, dict):
-            value = DictToAttrRecursive(value)
-        super(DictToAttrRecursive, self).__setitem__(key, value)
-        super().__setattr__(key, value)
-
-    def __delattr__(self, item):
-        try:
-            del self[item]
-        except KeyError:
-            raise AttributeError(f"Attribute {item} not found")
-
-
-cnhubert.cnhubert_base_path = cnhubert_path
-ssl_model = cnhubert.get_model()
-if is_half == True:
-    ssl_model = ssl_model.half().to(device)
-else:
-    ssl_model = ssl_model.to(device)
-
-
-###todo:put them to process_ckpt and modify my_save func (save sovits weights), gpt save weights use my_save in process_ckpt
-# symbol_version-model_version-if_lora_v3
-from process_ckpt import get_sovits_version_from_path_fast, load_sovits_new
-
-v3v4set = {"v3", "v4"}
-
-
-def change_sovits_weights(sovits_path:str):
+def init():
     """
-    更换SoVITS模型权重
-    @param sovits_path: SoVITS模型路径
+    初始化函数，用于加载模型等资源
     """
-    # 获取SoviTS模型版本信息    
-    version, model_version, if_lora_v3 = get_sovits_version_from_path_fast(sovits_path)
-    print(f"待加载SoVITS模型信息:sovits_path:{sovits_path}, symbol_version:{version}, model_version:{model_version}, if_lora_v3:{if_lora_v3}")
+    print("init")
+    global device,dict_language,tokenizer,bert_model,ssl_model
+    # 初始化设备参数
+    device = init_device()
+    # 初始化语言字典
+    dict_language = init_dict_language(version=version)
+    # 初始化BERT模型
+    tokenizer,bert_model = init_bert_model(bert_model_path=bert_path)
+    # 初始化ssl模型
+    ssl_model = init_ssl_model(ssl_model_path=cnhubert_path)
 
-    # 检查LoRA权重对应的底模是否存在
-    path_sovits_v3 = pretrained_sovits_name["v3"]
-    path_sovits_v4 = pretrained_sovits_name["v4"]
-    is_exist_s2gv3 = os.path.exists(path_sovits_v3)
-    is_exist_s2gv4 = os.path.exists(path_sovits_v4)
-    is_exist = is_exist_s2gv3 if model_version == "v3" else is_exist_s2gv4
-    path_sovits = path_sovits_v3 if model_version == "v3" else path_sovits_v4
-    
-    # 检查LoRA权重对应的底模是否存在
-    if if_lora_v3 == True and is_exist == False:
-        info = path_sovits + "SoVITS %s" % model_version + i18n("底模缺失，无法加载相应 LoRA 权重")
-        gr.Warning(info)
-        raise FileExistsError(info)
-    
-    # 加载SoVITS模型权重
-    dict_s2 = load_sovits_new(sovits_path)
-    hps = dict_s2["config"]
-    hps = DictToAttrRecursive(hps)
-    hps.model.semantic_frame_rate = "25hz"
-    if "enc_p.text_embedding.weight" not in dict_s2["weight"]:
-        hps.model.version = "v2"  # v3model,v2sybomls
-    elif dict_s2["weight"]["enc_p.text_embedding.weight"].shape[0] == 322:
-        hps.model.version = "v1"
-    else:
-        hps.model.version = "v2"
-    version = hps.model.version
-    # print("sovits版本:",hps.model.version)
-    if model_version not in v3v4set:
-        if "Pro" not in model_version:
-            model_version = version
-        else:
-            hps.model.version = model_version
-        vq_model = SynthesizerTrn(
-            hps.data.filter_length // 2 + 1,
-            hps.train.segment_size // hps.data.hop_length,
-            n_speakers=hps.data.n_speakers,
-            **hps.model,
-        )
-    else:
-        hps.model.version = model_version
-        vq_model = SynthesizerTrnV3(
-            hps.data.filter_length // 2 + 1,
-            hps.train.segment_size // hps.data.hop_length,
-            n_speakers=hps.data.n_speakers,
-            **hps.model,
-        )
-    if "pretrained" not in sovits_path:
-        try:
-            del vq_model.enc_q
-        except:
-            pass
-    if is_half == True:
-        vq_model = vq_model.half().to(device)
-    else:
-        vq_model = vq_model.to(device)
-    vq_model.eval()
-    if if_lora_v3 == False:
-        print("loading sovits_%s" % model_version, vq_model.load_state_dict(dict_s2["weight"], strict=False))
-    else:
-        path_sovits = path_sovits_v3 if model_version == "v3" else path_sovits_v4
-        print(
-            "loading sovits_%spretrained_G" % model_version,
-            vq_model.load_state_dict(load_sovits_new(path_sovits)["weight"], strict=False),
-        )
-        lora_rank = dict_s2["lora_rank"]
-        lora_config = LoraConfig(
-            target_modules=["to_k", "to_q", "to_v", "to_out.0"],
-            r=lora_rank,
-            lora_alpha=lora_rank,
-            init_lora_weights=True,
-        )
-        vq_model.cfm = get_peft_model(vq_model.cfm, lora_config)
-        print("loading sovits_%s_lora%s" % (model_version, lora_rank))
-        vq_model.load_state_dict(dict_s2["weight"], strict=False)
-        vq_model.cfm = vq_model.cfm.merge_and_unload()
-        # torch.save(vq_model.state_dict(),"merge_win.pth")
-        vq_model.eval()
-
-    yield (
-        version, model_version, if_lora_v3, vq_model, hps
-    )
-
-
-def change_gpt_weights(gpt_path:str):
-    """
-    更换GPT模型权重
-    @param gpt_path: GPT模型路径
-    """
-    print("更换GPT模型权重:", gpt_path)
-    hz = 50
-    dict_s1 = torch.load(gpt_path, map_location="cpu", weights_only=False)
-    dict_s1_config = dict_s1["config"]
-    max_sec = dict_s1_config["data"]["max_sec"]
-    t2s_model = Text2SemanticLightningModule(dict_s1_config, "****", is_train=False)
-    t2s_model.load_state_dict(dict_s1["weight"])
-    if is_half == True:
-        t2s_model = t2s_model.half()
-    t2s_model = t2s_model.to(device)
-    t2s_model.eval()
-    # total = sum([param.nelement() for param in t2s_model.parameters()])
-    # print("Number of parameter: %.2fM" % (total / 1e6))
-    yield (hz, max_sec, t2s_model)
+# 初始化函数
+init()
 
 
 resample_transform_dict = {}
@@ -547,7 +358,7 @@ def get_tts_wav(
     t = []
     if prompt_text is None or len(prompt_text) == 0:
         ref_free = True
-    if model_version in v3v4set:
+    if model_version in {"v3", "v4"}:
         ref_free = False  # s2v3暂不支持ref_free
     else:
         if_sr = False
@@ -656,7 +467,7 @@ def get_tts_wav(
         is_v2pro = model_version in {"v2Pro", "v2ProPlus"}
         # print(23333,is_v2pro,model_version)
         ###v3不存在以下逻辑和inp_refs
-        if model_version not in v3v4set:
+        if model_version not in {"v3", "v4"}:
             refers = []
             if is_v2pro:
                 sv_emb = []

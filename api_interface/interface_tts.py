@@ -122,7 +122,8 @@ def get_tts_wav_api(
         # 清理临时文件
         if isinstance(ref_wav_file, tuple) and os.path.exists(ref_wav_path):
             os.remove(ref_wav_path)
-        
+        # 清理所有内存
+        cleanup_memory()
         return (opt_sr,audio_data), {
             "status": "success",
             "message": "音频生成成功",
@@ -314,7 +315,7 @@ def create_tts_app():
             gr.JSON(label="生成信息")
         ],
         title="GPT-SoVITS TTS API 服务",
-        description="文本到语音合成 API 接口，支持多语言和声音克隆",
+        description="文本到语音合成 API 接口，支持多语言和声音",
         api_name="tts_generate"
     )
     
