@@ -283,7 +283,7 @@ def get_spepc(hps, filename, dtype, device, is_v2pro=False,target_dim=None):
 
 def check_model_compatibility(model_path):
     """检查模型文件与代码的兼容性"""
-    checkpoint = torch.load(model_path, map_location='cpu')
+    checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
     
     print("=== 模型文件检查 ===")
     if 'config' in checkpoint:
