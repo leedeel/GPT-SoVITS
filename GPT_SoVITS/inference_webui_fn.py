@@ -475,8 +475,6 @@ def get_tts_wav(
                 for path in inp_refs:
                     try:  #####这里加上提取sv的逻辑，要么一堆sv一堆refer，要么单个sv单个refer
                         refer, audio_tensor = get_spepc(hps, path.name, dtype, device, is_v2pro)
-                        # 对refer进行音色特征去除，只保留节奏信息
-                        refer = remove_timbre_features_advanced(refer, device)
                         refers.append(refer)
                         if is_v2pro:
                             sv_emb.append(sv_cn_model.compute_embedding3(audio_tensor))
@@ -484,7 +482,6 @@ def get_tts_wav(
                         traceback.print_exc()
             if len(refers) == 0:
                 refer, audio_tensor = get_spepc(hps, ref_wav_path, dtype, device, is_v2pro)
-                refer = remove_timbre_features_advanced(refer, device)
                 refers.append(refer)
                 if is_v2pro:
                     sv_emb = [sv_cn_model.compute_embedding3(audio_tensor)]
