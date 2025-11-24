@@ -124,7 +124,7 @@ def get_bert_feature(text:str, word2ph:list, tokenizer, bert_model, device):
     phone_level_feature = torch.cat(phone_level_feature, dim=0)
     return phone_level_feature.T
 
-
+resample_transform_dict = {}
 def _resample(audio_tensor, sr0, sr1, device):
     """
     重采样
