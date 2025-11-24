@@ -95,10 +95,6 @@ def clean_text_inf(text, language, version):
     phones = cleaned_text_to_sequence(phones, version)
     return phones, word2ph, norm_text
 
-
-dtype = torch.float16 if is_half == True else torch.float32
-
-
 splits = {
     "，",
     "。",
@@ -302,7 +298,6 @@ def audio_sr(audio, sr):
 from GPT_SoVITS.base_model_helper import (clear_all_models,init_model_by_version,get_all_models)
 from GPT_SoVITS.timbre import (remove_timbre_features_advanced)
 
-
 def get_tts_wav(
     sovits_path:str,
     gpt_path:str,
@@ -325,96 +320,65 @@ def get_tts_wav(
 ):
     """
     生成语音的主推理函数
+    @param sovits_path: SoVITS模型路径
+    @param gpt_path: GPT模型路径
+    @param ref_wav_path: 参考音频路径
+    @param prompt_text: 参考文本
+    @param prompt_language: 参考文本语言
+    @param text: 目标文本
+    @param text_language: 目标文本语言
+    @param how_to_cut: 目标文本切分方式
+    @param top_k: top_k采样参数
+    @param top_p: top_p采样参数
+    @param temperature: 采样温度参数
+    @param ref_free: 是否无参考音频
+    @param speed: 语速
+    @param if_freeze: 是否使用缓存
+    @param inp_refs: 额外参考音频列表
+    @param sample_steps: 采样步数
+    @param if_sr: 是否进行音频超分
+    @param pause_second: 句间停顿时长
+    @return: 生成的语音波形
     """
-    # 1. 参数验证
-    _validate_inputs(ref_wav_path, text)
-    
-    # 2. 初始化模型
-    models = _initialize_models(sovits_path, gpt_path)
-    version, model_version, if_lora_v3, vq_model, hps, hz, max_sec, t2s_model,hifigan_model, bigvgan_model, sv_cn_model = models
-    
-    # 3. 处理参考音频
-    prompt_semantic, zero_wav_torch = _process_reference_audio(
-        vq_model=vq_model,
-        ref_wav_path=ref_wav_path,
-        prompt_text=prompt_text,
-        prompt_language=prompt_language,
-        ref_free=ref_free,
-        version=version,
-        model_version=model_version,
-        hps=hps,
-        pause_second=pause_second,
-    )
-     
-    # 4. 处理目标文本
-    processed_texts = _process_target_text(
-        text=text,
-        how_to_cut=how_to_cut
-    )
-    
-    # 5. 生成语音
-    audio_opt = _generate_speech(
-        ref_wav_path=ref_wav_path,
-        prompt_text=prompt_text,
-        prompt_language=prompt_language,
-        processed_texts=processed_texts,
-        prompt_semantic=prompt_semantic,
-        vq_model=vq_model,
-        hps=hps,
-        t2s_model=t2s_model,
-        sv_cn_model=sv_cn_model,
-        version=version,
-        model_version=model_version,
-        hz=hz,
-        max_sec=max_sec,
-        top_k=top_k,
-        top_p=top_p,
-        temperature=temperature,
-        if_freeze=if_freeze,
-        inp_refs=inp_refs,
-        speed=speed,
-        zero_wav_torch=zero_wav_torch
-    )
-    
-    # 6. 后处理
-    final_audio, opt_sr = _post_process_audio(
-        audio_opt, model_version, if_sr
-    )
-    
-    yield opt_sr, final_audio
-
-
-def _validate_inputs(ref_wav_path, text):
-    """验证输入参数"""
     if not ref_wav_path:
         raise Exception(i18n("请上传参考音频"))
     if not text:
         raise Exception(i18n("请填入推理文本"))
-
-
-def _initialize_models(sovits_path, gpt_path):
-    """初始化所有需要的模型"""
+    
+    cache = {}
     # 加载SoVITS模型权重
-    version, model_version, if_lora_v3, vq_model, hps = next(change_sovits_weights(sovits_path))
+    ( version, model_version, if_lora_v3, vq_model, hps) = next(change_sovits_weights(sovits_path))
     print("使用SoVITS模型版本:", version, model_version, if_lora_v3)
-    
     # 加载GPT模型权重
-    hz, max_sec, t2s_model = next(change_gpt_weights(gpt_path))
-    
+    (hz, max_sec, t2s_model) = next(change_gpt_weights(gpt_path))
     # 加载基础模型
     init_model_by_version(version=model_version)
-    
     # 获取基础模型实例
     hifigan_model, bigvgan_model, sv_cn_model = get_all_models()
     print(f"使用基础模型实例:hifigan_model:{hifigan_model}, bigvgan_model:{bigvgan_model}, sv_cn_model:{sv_cn_model}")
-    
-    return version, model_version, if_lora_v3, vq_model, hps, hz, max_sec, t2s_model, hifigan_model, bigvgan_model, sv_cn_model
+        
+    t = []
+    if prompt_text is None or len(prompt_text) == 0:
+        ref_free = True
+    if model_version in {"v3", "v4"}:
+        ref_free = False  # s2v3暂不支持ref_free
+    else:
+        if_sr = False
+    if model_version not in ["v3", "v4", "v2Pro", "v2ProPlus"]:
+        clear_all_models()
+    t0 = ttime()
+    prompt_language = dict_language[prompt_language]
+    text_language = dict_language[text_language]
 
+    if not ref_free:
+        prompt_text = prompt_text.strip("\n")
+        if prompt_text[-1] not in splits:
+            prompt_text += "。" if prompt_language != "en" else "."
+        print(i18n("实际输入的参考文本:"), prompt_text)
+    text = text.strip("\n")
+    # if (text[0] not in splits and len(get_first(text)) < 4): text = "。" + text if text_language != "en" else "." + text
 
-def _process_reference_audio(vq_model,ref_wav_path, prompt_text, prompt_language, ref_free, 
-                           version, model_version, hps, pause_second):
-    """处理参考音频，提取语义特征"""
-    # 初始化零音频
+    print(i18n("实际输入的目标文本:"), text)
     zero_wav = np.zeros(
         int(hps.data.sampling_rate * pause_second),
         dtype=np.float16 if is_half == True else np.float32,
@@ -424,15 +388,7 @@ def _process_reference_audio(vq_model,ref_wav_path, prompt_text, prompt_language
         zero_wav_torch = zero_wav_torch.half().to(device)
     else:
         zero_wav_torch = zero_wav_torch.to(device)
-        
-    prompt_semantic = None
     if not ref_free:
-        prompt_text = prompt_text.strip("\n")
-        if prompt_text[-1] not in splits:
-            prompt_text += "。" if prompt_language != "en" else "."
-        print(i18n("实际输入的参考文本:"), prompt_text)
-        
-        # 提取参考音频的语义特征
         with torch.no_grad():
             wav16k, sr = librosa.load(ref_wav_path, sr=16000)
             wav16k = torch.from_numpy(wav16k)
@@ -445,237 +401,175 @@ def _process_reference_audio(vq_model,ref_wav_path, prompt_text, prompt_language
             codes = vq_model.extract_latent(ssl_content)
             prompt_semantic = codes[0, 0]
             prompt = prompt_semantic.unsqueeze(0).to(device)
-    
-    return prompt_semantic, zero_wav_torch
 
+    t1 = ttime()
+    t.append(t1 - t0)
 
-def _process_target_text(text, how_to_cut):
-    """处理目标文本，包括切分和格式化"""
-    text = text.strip("\n")
-    print("实际输入的目标文本:", text)
-    
-    # 文本切分
-    cut_functions = {
-        i18n("凑四句一切"): cut1,
-        i18n("凑50字一切"): cut2,
-        i18n("按中文句号。切"): cut3,
-        i18n("按英文句号.切"): cut4,
-        i18n("按标点符号切"): cut5,
-    }
-    
-    if how_to_cut in cut_functions:
-        text = cut_functions[how_to_cut](text)
-    
-    # 处理连续换行
+    if how_to_cut == i18n("凑四句一切"):
+        text = cut1(text)
+    elif how_to_cut == i18n("凑50字一切"):
+        text = cut2(text)
+    elif how_to_cut == i18n("按中文句号。切"):
+        text = cut3(text)
+    elif how_to_cut == i18n("按英文句号.切"):
+        text = cut4(text)
+    elif how_to_cut == i18n("按标点符号切"):
+        text = cut5(text)
     while "\n\n" in text:
         text = text.replace("\n\n", "\n")
     print(i18n("实际输入的目标文本(切句后):"), text)
     texts = text.split("\n")
     texts = process_text(texts)
     texts = merge_short_text_in_array(texts, 5)
-    
-    return texts
-
-
-def _generate_speech(ref_wav_path,
-                     prompt_text,
-                     prompt_language,
-                     processed_texts, 
-                     prompt_semantic, 
-                     vq_model, hps, 
-                     t2s_model,sv_cn_model, version, model_version, hz, max_sec, top_k, top_p, 
-                    temperature, if_freeze, inp_refs, speed, zero_wav_torch):
-    """生成语音波形"""
-    cache = {}
     audio_opt = []
-    
-    phones1, bert1, norm_text1 = get_phones_and_bert(prompt_text, prompt_language, version)
-    
-    for i_text, text in enumerate(processed_texts):
-        # 跳过空行
+    ###s2v3暂不支持ref_free
+    if not ref_free:
+        phones1, bert1, norm_text1 = get_phones_and_bert(prompt_text, prompt_language, version)
+
+    for i_text, text in enumerate(texts):
+        # 解决输入目标文本的空行导致报错的问题
         if len(text.strip()) == 0:
             continue
-            
-        # 处理单句文本
-        audio_segment = _process_single_sentence(
-            ref_wav_path=ref_wav_path,
-            text=text,
-            i_text=i_text,
-            prompt_semantic=prompt_semantic,
-            vq_model=vq_model,
-            hps=hps,
-            t2s_model=t2s_model,
-            sv_cn_model=sv_cn_model,
-            version=version,
-            model_version=model_version,
-            hz=hz,
-            max_sec=max_sec,
-            top_k=top_k,
-            top_p=top_p,
-            temperature=temperature,
-            if_freeze=if_freeze,
-            inp_refs=inp_refs,
-            speed=speed,
-            zero_wav_torch=zero_wav_torch,
-            phones1=phones1,
-            bert1=bert1,
-            cache=cache
-        )
-        
-        if audio_segment is not None:
-            audio_opt.append(audio_segment)
-            audio_opt.append(zero_wav_torch)  # 添加停顿
-    
-    # 合并所有音频片段
-    if audio_opt:
-        return torch.cat(audio_opt, 0)
-    else:
-        return torch.tensor([])
+        if text[-1] not in splits:
+            text += "。" if text_language != "en" else "."
+        print(i18n("实际输入的目标文本(每句):"), text)
+        phones2, bert2, norm_text2 = get_phones_and_bert(text, text_language, version)
+        print(i18n("前端处理后的文本(每句):"), norm_text2)
+        if not ref_free:
+            bert = torch.cat([bert1, bert2], 1)
+            all_phoneme_ids = torch.LongTensor(phones1 + phones2).to(device).unsqueeze(0)
+        else:
+            bert = bert2
+            all_phoneme_ids = torch.LongTensor(phones2).to(device).unsqueeze(0)
 
+        bert = bert.to(device).unsqueeze(0)
+        all_phoneme_len = torch.tensor([all_phoneme_ids.shape[-1]]).to(device)
 
-def _process_single_sentence(ref_wav_path, text, i_text, prompt_semantic, vq_model, hps, 
-                           t2s_model, sv_cn_model,version, model_version, hz, max_sec, top_k, top_p, 
-                           temperature, if_freeze, inp_refs, speed, zero_wav_torch, 
-                           phones1, bert1, cache):
-    """处理单个句子并生成对应的音频"""
-    # 确保句子以标点结尾
-    if text[-1] not in splits:
-        text += "。"
-    
-    print("实际输入的目标文本(每句):", text)
-    
-    # 获取文本的音素和BERT特征
-    phones2, bert2, norm_text2 = get_phones_and_bert(text, "all_zh", version)
-    print(i18n("前端处理后的文本(每句):"), norm_text2)
-    
-    # 准备BERT输入和音素ID
-    bert = torch.cat([bert1, bert2], 1)
-    all_phoneme_ids = torch.LongTensor(phones1 + phones2).to(device).unsqueeze(0)
-    bert = bert.to(device).unsqueeze(0)
-    all_phoneme_len = torch.tensor([all_phoneme_ids.shape[-1]]).to(device)
-    
-    # 生成语义特征
-    pred_semantic = _generate_semantic_features(
-        all_phoneme_ids=all_phoneme_ids,
-        all_phoneme_len=all_phoneme_len,
-        prompt_semantic=prompt_semantic,
-        bert=bert,
-        t2s_model=t2s_model,
-        hz=hz,
-        max_sec=max_sec,
-        top_k=top_k,
-        top_p=top_p,
-        temperature=temperature,
-        if_freeze=if_freeze,
-        i_text=i_text,
-        cache=cache
-    )
-    
-    if pred_semantic is None:
-        return None
-    
-    # 获取参考音频特征
-    refers, sv_emb = _get_reference_features(
-        sv_cn_model=sv_cn_model,
-        hps=hps,
-        inp_refs=inp_refs,
-        ref_wav_path=ref_wav_path,
-        device=device)
-    
-    # 解码生成音频
-    audio = vq_model.decode(
-        pred_semantic, torch.LongTensor(phones2).to(device).unsqueeze(0), 
-        refers, speed=speed, sv_emb=sv_emb
-    )[0][0]
-    
-    # 防止爆音
-    max_audio = torch.abs(audio).max()
-    if max_audio > 1:
-        audio = audio / max_audio
-    
-    return audio
-
-
-def _generate_semantic_features(all_phoneme_ids, all_phoneme_len, prompt_semantic, 
-                              bert, t2s_model, hz, max_sec, top_k, top_p, 
-                              temperature, if_freeze, i_text, cache):
-    """生成语义特征"""
-    # 检查缓存
-    if i_text in cache and if_freeze == True:
-        return cache[i_text]
-    
-    # 生成新的语义特征
-    with torch.no_grad():
-        pred_semantic, idx = t2s_model.model.infer_panel(
-            all_phoneme_ids,
-            all_phoneme_len,
-            prompt_semantic,
-            bert,
-            top_k=top_k,
-            top_p=top_p,
-            temperature=temperature,
-            early_stop_num=hz * max_sec,
-        )
-        pred_semantic = pred_semantic[:, -idx:].unsqueeze(0)
-        
-        # 更新缓存
-        if if_freeze:
-            cache[i_text] = pred_semantic
-    
-    return pred_semantic
-
-
-def _get_reference_features(sv_cn_model,hps, inp_refs, ref_wav_path, device):
-    """获取参考音频的声学特征和说话人嵌入"""
-    refers = []
-    sv_emb = []
-    
-    # 处理额外参考音频
-    if inp_refs:
-        for path in inp_refs:
-            try:
-                refer, audio_tensor = get_spepc(hps, path.name, dtype, device, True)
+        t2 = ttime()
+        # cache_key="%s-%s-%s-%s-%s-%s-%s-%s"%(ref_wav_path,prompt_text,prompt_language,text,text_language,top_k,top_p,temperature)
+        # print(cache.keys(),if_freeze)
+        if i_text in cache and if_freeze == True:
+            pred_semantic = cache[i_text]
+        else:
+            with torch.no_grad():
+                pred_semantic, idx = t2s_model.model.infer_panel(
+                    all_phoneme_ids,
+                    all_phoneme_len,
+                    None if ref_free else prompt,
+                    bert,
+                    # prompt_phone_len=ph_offset,
+                    top_k=top_k,
+                    top_p=top_p,
+                    temperature=temperature,
+                    early_stop_num=hz * max_sec,
+                )
+                pred_semantic = pred_semantic[:, -idx:].unsqueeze(0)
+                cache[i_text] = pred_semantic
+        t3 = ttime()
+        is_v2pro = model_version in {"v2Pro", "v2ProPlus"}
+        # print(23333,is_v2pro,model_version)
+        ###v3不存在以下逻辑和inp_refs
+        if model_version not in {"v3", "v4"}:
+            refers = []
+            if is_v2pro:
+                sv_emb = []
+            if inp_refs:
+                for path in inp_refs:
+                    try:  #####这里加上提取sv的逻辑，要么一堆sv一堆refer，要么单个sv单个refer
+                        refer, audio_tensor = get_spepc(hps, path.name, dtype, device, is_v2pro)
+                        refers.append(refer)
+                        if is_v2pro:
+                            sv_emb.append(sv_cn_model.compute_embedding3(audio_tensor))
+                    except:
+                        traceback.print_exc()
+            if len(refers) == 0:
+                refer, audio_tensor = get_spepc(hps, ref_wav_path, dtype, device, is_v2pro)
                 refers.append(refer)
-                sv_emb.append(sv_cn_model.compute_embedding3(audio_tensor))
-            except:
-                traceback.print_exc()
-    
-    # 如果没有额外参考音频，使用主参考音频
-    if len(refers) == 0:
-        refer, audio_tensor = get_spepc(hps, ref_wav_path, dtype, device, True)
-        refers.append(refer)
-        sv_emb.append(sv_cn_model.compute_embedding3(audio_tensor))
-    
-    return refers, sv_emb
-
-
-def _post_process_audio(audio_opt, model_version, if_sr):
-    """对生成的音频进行后处理"""
-    # 确定输出采样率
-    sr_mapping = {
-        "v1": 32000,
-        "v2": 32000,
-        "v2Pro": 32000,
-        "v2ProPlus": 32000,
-        "v3": 24000,
-        "v4": 48000
-    }
-    opt_sr = sr_mapping.get(model_version, 48000)
-    
-    # 音频超分处理
+                if is_v2pro:
+                    sv_emb = [sv_cn_model.compute_embedding3(audio_tensor)]
+            
+            if is_v2pro:
+                audio = vq_model.decode(
+                    pred_semantic, torch.LongTensor(phones2).to(device).unsqueeze(0), refers, speed=speed, sv_emb=sv_emb
+                )[0][0]
+            else:
+                audio = vq_model.decode(
+                    pred_semantic, torch.LongTensor(phones2).to(device).unsqueeze(0), refers, speed=speed
+                )[0][0]
+        else:
+            refer, audio_tensor = get_spepc(hps, ref_wav_path, dtype, device)
+            phoneme_ids0 = torch.LongTensor(phones1).to(device).unsqueeze(0)
+            phoneme_ids1 = torch.LongTensor(phones2).to(device).unsqueeze(0)
+            fea_ref, ge = vq_model.decode_encp(prompt.unsqueeze(0), phoneme_ids0, refer)
+            ref_audio, sr = torchaudio.load(ref_wav_path)
+            ref_audio = ref_audio.to(device).float()
+            if ref_audio.shape[0] == 2:
+                ref_audio = ref_audio.mean(0).unsqueeze(0)
+            tgt_sr = 24000 if model_version == "v3" else 32000
+            if sr != tgt_sr:
+                ref_audio = resample(ref_audio, sr, tgt_sr, device)
+            # print("ref_audio",ref_audio.abs().mean())
+            mel2 = mel_fn(ref_audio) if model_version == "v3" else mel_fn_v4(ref_audio)
+            mel2 = norm_spec(mel2)
+            T_min = min(mel2.shape[2], fea_ref.shape[2])
+            mel2 = mel2[:, :, :T_min]
+            fea_ref = fea_ref[:, :, :T_min]
+            Tref = 468 if model_version == "v3" else 500
+            Tchunk = 934 if model_version == "v3" else 1000
+            if T_min > Tref:
+                mel2 = mel2[:, :, -Tref:]
+                fea_ref = fea_ref[:, :, -Tref:]
+                T_min = Tref
+            chunk_len = Tchunk - T_min
+            mel2 = mel2.to(dtype)
+            fea_todo, ge = vq_model.decode_encp(pred_semantic, phoneme_ids1, refer, ge, speed)
+            cfm_resss = []
+            idx = 0
+            while 1:
+                fea_todo_chunk = fea_todo[:, :, idx : idx + chunk_len]
+                if fea_todo_chunk.shape[-1] == 0:
+                    break
+                idx += chunk_len
+                fea = torch.cat([fea_ref, fea_todo_chunk], 2).transpose(2, 1)
+                cfm_res = vq_model.cfm.inference(
+                    fea, torch.LongTensor([fea.size(1)]).to(fea.device), mel2, sample_steps, inference_cfg_rate=0
+                )
+                cfm_res = cfm_res[:, :, mel2.shape[2] :]
+                mel2 = cfm_res[:, :, -T_min:]
+                fea_ref = fea_todo_chunk[:, :, -T_min:]
+                cfm_resss.append(cfm_res)
+            cfm_res = torch.cat(cfm_resss, 2)
+            cfm_res = denorm_spec(cfm_res)
+            vocoder_model = bigvgan_model if model_version == "v3" else hifigan_model
+            with torch.inference_mode():
+                wav_gen = vocoder_model(cfm_res)
+                audio = wav_gen[0][0]  # .cpu().detach().numpy()
+        max_audio = torch.abs(audio).max()  # 简单防止16bit爆音
+        if max_audio > 1:
+            audio = audio / max_audio
+        audio_opt.append(audio)
+        audio_opt.append(zero_wav_torch)  # zero_wav
+        t4 = ttime()
+        t.extend([t2 - t1, t3 - t2, t4 - t3])
+        t1 = ttime()
+    print("%.3f\t%.3f\t%.3f\t%.3f" % (t[0], sum(t[1::3]), sum(t[2::3]), sum(t[3::3])))
+    audio_opt = torch.cat(audio_opt, 0)  # np.concatenate
+    if model_version in {"v1", "v2", "v2Pro", "v2ProPlus"}:
+        opt_sr = 32000
+    elif model_version == "v3":
+        opt_sr = 24000
+    else:
+        opt_sr = 48000  # v4
     if if_sr == True and opt_sr == 24000:
         print(i18n("音频超分中"))
         audio_opt, opt_sr = audio_sr(audio_opt.unsqueeze(0), opt_sr)
         max_audio = np.abs(audio_opt).max()
         if max_audio > 1:
             audio_opt /= max_audio
-        final_audio = (audio_opt * 32767).astype(np.int16)
     else:
-        # 转换为numpy数组并量化
-        audio_np = audio_opt.cpu().detach().numpy()
-        final_audio = (audio_np * 32767).astype(np.int16)
-    
-    return final_audio, opt_sr
+        audio_opt = audio_opt.cpu().detach().numpy()
+    yield opt_sr, (audio_opt * 32767).astype(np.int16)
+
 
 def split(todo_text):
     todo_text = todo_text.replace("……", "。").replace("——", "，")
