@@ -1,10 +1,10 @@
 import os
 from transformers import AutoModelForMaskedLM, AutoTokenizer
-from api_interface.config import (is_half)
+from api_interface.config import (is_half,bert_path)
 from GPT_SoVITS.text.cleaner import clean_text
 import torch
 import json
-from api_interface.dataset.common import get_device,get_bert_dir,save_pth
+from api_interface.dataset.common import get_device,get_bert_dir,save_pth,get_tfe_file_path
 
 language_v1_to_language_v2 = {
     "ZH": "zh",
@@ -94,8 +94,7 @@ def get_bert_feature(bert_model, tokenizer, text, word2ph,device):
 def train_tfe(version:str,
               opt_dir:str,
               train_dataset_list:list[dict[str, str]],
-              language:str,
-              bert_pretrained_dir:str):
+              language:str):
     """
     文本分词与特征提取
     参数:
@@ -105,14 +104,14 @@ def train_tfe(version:str,
     - wav_path: 音频路径
     
     """
-    if not os.path.exists(bert_pretrained_dir):
-        raise FileNotFoundError(bert_pretrained_dir)
+    if not os.path.exists(bert_path):
+        raise FileNotFoundError(bert_path)
     # 1.文本分词特征提取
-    tfe_process_file_path = os.path.join(opt_dir, "1-tfe.json")
+    tfe_process_file_path = get_tfe_file_path(opt_dir=opt_dir)
     if os.path.exists(tfe_process_file_path):
         return tfe_process_file_path
-    tokenizer = AutoTokenizer.from_pretrained(bert_pretrained_dir)
-    bert_model = AutoModelForMaskedLM.from_pretrained(bert_pretrained_dir)
+    tokenizer = AutoTokenizer.from_pretrained(bert_path)
+    bert_model = AutoModelForMaskedLM.from_pretrained(bert_path)
     if is_half == True:
         bert_model = bert_model.half().to(device)
     else:

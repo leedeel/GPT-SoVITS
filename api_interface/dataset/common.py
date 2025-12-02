@@ -28,6 +28,18 @@ def save_pth(fea, path):  #####fix issue: torch.save doesn't support chinese pat
     torch.save(fea, tmp_path)
     shutil.move(tmp_path, "%s/%s" % (dir, name))
 
+def get_tfe_file_path(opt_dir:str):
+    """
+    获取tfe文件路径
+    参数:
+    opt_dir: 存储路径
+    返回:
+    tfe文件路径
+    """
+    tfe_file_path = os.path.join(opt_dir, "2-name2text.json")
+    return tfe_file_path
+
+
 def get_bert_dir(opt_dir:str):
     """
     获取bert特征存储路径
@@ -63,3 +75,27 @@ def get_wav32dir(opt_dir:str):
     wav32dir = os.path.join(opt_dir, "5-wav32k")
     os.makedirs(wav32dir, exist_ok=True)
     return wav32dir
+
+def get_sv_cn_dir(opt_dir:str):
+    """
+    获取sv_cn特征存储路径
+    参数:
+    opt_dir: 存储路径
+    返回:
+    sv_cn特征存储路径
+    """
+    sv_cn_dir = os.path.join(opt_dir, "7-sv_cn")
+    os.makedirs(sv_cn_dir, exist_ok=True)
+    return sv_cn_dir
+
+
+def get_semantic_path(opt_dir:str):
+    """
+    获取语义token存储路径
+    参数:
+    opt_dir: 存储路径
+    返回:
+    语义token存储路径
+    """
+    semantic_path = os.path.join(opt_dir, "6-name2semantic.tsv")
+    return semantic_path

@@ -1,6 +1,6 @@
 import os
 import torch
-from api_interface.config import (is_half,)
+from api_interface.config import (is_half,cnhubert_path)
 from GPT_SoVITS.feature_extractor import cnhubert
 import numpy as np
 from scipy.io import wavfile
@@ -33,11 +33,11 @@ alpha = 0.5
 def name2go(wav_name:str, 
             wav_path:str, 
             nan_fails:list[str],
-            opt_dir:str,
+            hubert_dir:str,
+            wav32dir:str,
             model:any, 
             device:str):
-    hubert_dir = get_hubert_dir(opt_dir=opt_dir)
-    wav32dir = get_wav32dir(opt_dir=opt_dir)
+    
     hubert_path = "%s/%s.pt" % (hubert_dir, wav_name)
     if os.path.exists(hubert_path):
         return
@@ -69,12 +69,13 @@ def name2go(wav_name:str,
 
 
 def train_ssl(opt_dir:str,
-              train_dataset_list:list[dict[str, str]],
-              ssl_pretrained_dir:str)->None:
+              train_dataset_list:list[dict[str, str]])->None:
     device = get_device()
-    model = init_cnhubert_model(ssl_pretrained_dir=ssl_pretrained_dir,
+    model = init_cnhubert_model(ssl_pretrained_dir=cnhubert_path,
                                 device=device)
     nan_fails = []
+    hubert_dir = get_hubert_dir(opt_dir=opt_dir)
+    wav32dir = get_wav32dir(opt_dir=opt_dir)
     for dataset in train_dataset_list:
         try:
             text = dataset.get("text")
@@ -82,7 +83,8 @@ def train_ssl(opt_dir:str,
             wav_name = os.path.basename(wav_path)
             name2go(wav_name=wav_name,
                     wav_path=wav_path,
-                    opt_dir=opt_dir,
+                    hubert_dir=hubert_dir,
+                    wav32dir=wav32dir,
                     nan_fails=nan_fails,
                     model=model,
                     device=device)
@@ -96,7 +98,8 @@ def train_ssl(opt_dir:str,
             try:
                 name2go(wav_name=wav[0], 
                         wav_path=wav[1],
-                        opt_dir=opt_dir,
+                        hubert_dir=hubert_dir,
+                        wav32dir=wav32dir,
                         nan_fails=nan_fails,
                         model=model,
                         device=device)
