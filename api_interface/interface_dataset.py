@@ -31,13 +31,13 @@ def process_json_with_audio(json_data:str, audio_files:list[gr.Audio])->list[dic
         return "JSON格式错误"
 
 def train_dataset_api(version:str,
-                      dataset_key:str,
+                      exp_name:str,
                       audio_json:str,
                       audio_files:list[gr.Audio]) -> dict:
     """
     训练数据集管理API
     参数:
-    dataset_key: 数据集标识符
+    exp_name: 实验/模型名称
     audio_json: 音频JSON数据
     audio_files: 音频文件列表
     返回:
@@ -48,7 +48,7 @@ def train_dataset_api(version:str,
         
         train_dataset(version=version,
                     train_dataset_list=train_dataset_list,
-                    dataset_key=dataset_key)
+                    exp_name=exp_name)
         return {"status": "success", "message": "数据集训练成功"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -75,8 +75,8 @@ def create_dataset_app():
                 scale=5,
             ),
             gr.Textbox(
-                label="数据集标识符",
-                placeholder="请输入数据集标识符...",
+                label="实验/模型名称",
+                placeholder="请输入实验/模型名称...",
             ),
             gr.Textbox(
                 label="音频JSON数据",
@@ -96,5 +96,6 @@ def create_dataset_app():
     )
     return dataset_interface
 
-dataset_interface = create_dataset_app()
-dataset_interface.launch()
+if __name__ == "__main__":
+    dataset_interface = create_dataset_app()
+    dataset_interface.launch()

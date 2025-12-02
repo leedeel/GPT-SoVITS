@@ -10,7 +10,7 @@ from api_interface.dataset.semantic_token_fn import train_semantic_token
 def train_dataset(
     version: str,
     train_dataset_list: list[dict],
-    dataset_key: str,
+    exp_name: str,
     language:str = "zh"
 ):
     """
@@ -22,7 +22,7 @@ def train_dataset(
     - wav_path: 音频路径
     
     """
-    opt_dir = os.path.join(exp_root, dataset_key)
+    opt_dir = os.path.join(exp_root, exp_name)
     os.makedirs(opt_dir, exist_ok=True)
     print(f"待处理数据集:{train_dataset_list}，版本:{version}，语言:{language}，输出路径:{opt_dir}")
     
