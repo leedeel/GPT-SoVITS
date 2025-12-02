@@ -1,5 +1,6 @@
 
 import os
+from api_interface.config import (exp_root)
 from api_interface.dataset.tfe_fn import train_tfe
 from api_interface.dataset.ssl_fn import train_ssl
 from api_interface.dataset.sv_fn import train_sv
@@ -9,8 +10,7 @@ from api_interface.dataset.semantic_token_fn import train_semantic_token
 def train_dataset(
     version: str,
     train_dataset_list: list[dict],
-    export_root: str,
-    export_name: str,
+    dataset_key: str,
     language:str = "zh"
 ):
     """
@@ -22,7 +22,7 @@ def train_dataset(
     - wav_path: 音频路径
     
     """
-    opt_dir = os.path.join(export_root, export_name)
+    opt_dir = os.path.join(exp_root, dataset_key)
     os.makedirs(opt_dir, exist_ok=True)
     print(f"待处理数据集:{train_dataset_list}，版本:{version}，语言:{language}，输出路径:{opt_dir}")
     
