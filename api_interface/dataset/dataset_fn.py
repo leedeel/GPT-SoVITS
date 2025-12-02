@@ -9,8 +9,8 @@ from time import time as ttime
 import shutil
 import torch
 import json
-from api_interface.interface_train_tfe_fn import train_tfe
-from api_interface.interface_train_ssl_fn import train_ssl
+from api_interface.dataset.tfe_fn import train_tfe
+from api_interface.dataset.ssl_fn import train_ssl
 
 
 def open1abc(

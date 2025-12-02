@@ -6,7 +6,7 @@ import numpy as np
 from scipy.io import wavfile
 import librosa
 from tools.my_utils import load_audio
-from api_interface.interface_dataset_common_fn import (get_device, save_pth, get_hubert_dir, get_wav32dir)
+from api_interface.dataset.common import (get_device, save_pth, get_hubert_dir, get_wav32dir)
 
 def init_cnhubert_model(ssl_pretrained_dir:str,
                         device:str)->any:

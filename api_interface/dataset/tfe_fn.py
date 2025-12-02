@@ -4,7 +4,7 @@ from api_interface.config import (is_half)
 from GPT_SoVITS.text.cleaner import clean_text
 import torch
 import json
-from api_interface.interface_dataset_common_fn import get_device,get_bert_dir,save_pth
+from api_interface.dataset.common import get_device,get_bert_dir,save_pth
 
 language_v1_to_language_v2 = {
     "ZH": "zh",
