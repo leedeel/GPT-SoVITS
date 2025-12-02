@@ -34,6 +34,12 @@ COPY requirements.txt /workspace/GPT-SoVITS/
 
 COPY install.sh /workspace/GPT-SoVITS/
 
+# 接受 Conda 服务条款
+RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+
+ENV TERM=xterm
+
 RUN bash Docker/install_wrapper.sh
 
 EXPOSE 9871 9872 9873 9874 9880
@@ -50,13 +56,4 @@ WORKDIR /workspace/GPT-SoVITS
 
 COPY . /workspace/GPT-SoVITS
 
-CMD ["/bin/bash", "-c", "\
-  rm -rf /workspace/GPT-SoVITS/GPT_SoVITS/pretrained_models && \
-  rm -rf /workspace/GPT-SoVITS/GPT_SoVITS/text/G2PWModel && \
-  rm -rf /workspace/GPT-SoVITS/tools/asr/models && \
-  rm -rf /workspace/GPT-SoVITS/tools/uvr5/uvr5_weights && \
-  ln -s /workspace/models/pretrained_models /workspace/GPT-SoVITS/GPT_SoVITS/pretrained_models && \
-  ln -s /workspace/models/G2PWModel /workspace/GPT-SoVITS/GPT_SoVITS/text/G2PWModel && \
-  ln -s /workspace/models/asr_models /workspace/GPT-SoVITS/tools/asr/models && \
-  ln -s /workspace/models/uvr5_weights /workspace/GPT-SoVITS/tools/uvr5/uvr5_weights && \
-  exec bash"]
+RUN rm -rf /workspace/models

@@ -9,17 +9,17 @@
 import psutil
 import os
 
-def set_high_priority():
-    """把当前 Python 进程设为 HIGH_PRIORITY_CLASS"""
-    if os.name != "nt":
-        return # 仅 Windows 有效
-    p = psutil.Process(os.getpid())
-    try:
-        p.nice(psutil.HIGH_PRIORITY_CLASS)
-        print("已将进程优先级设为 High")
-    except psutil.AccessDenied:
-        print("权限不足，无法修改优先级（请用管理员运行）")
-set_high_priority()
+# def set_high_priority():
+#     """把当前 Python 进程设为 HIGH_PRIORITY_CLASS"""
+#     if os.name != "nt":
+#         return # 仅 Windows 有效
+#     p = psutil.Process(os.getpid())
+#     try:
+#         p.nice(psutil.HIGH_PRIORITY_CLASS)
+#         print("已将进程优先级设为 High")
+#     except psutil.AccessDenied:
+#         print("权限不足，无法修改优先级（请用管理员运行）")
+# set_high_priority()
 import json
 import logging
 import os
@@ -30,7 +30,7 @@ import warnings
 
 import torch
 import torchaudio
-from text.LangSegmenter import LangSegmenter
+from GPT_SoVITS.text.LangSegmenter import LangSegmenter
 
 logging.getLogger("markdown_it").setLevel(logging.ERROR)
 logging.getLogger("urllib3").setLevel(logging.ERROR)
@@ -81,8 +81,6 @@ with open("./weight.json", "r", encoding="utf-8") as file:
 
 cnhubert_base_path = os.environ.get("cnhubert_base_path", "GPT_SoVITS/pretrained_models/chinese-hubert-base")
 bert_path = os.environ.get("bert_path", "GPT_SoVITS/pretrained_models/chinese-roberta-wwm-ext-large")
-infer_ttswebui = os.environ.get("infer_ttswebui", 9872)
-infer_ttswebui = int(infer_ttswebui)
 is_share = os.environ.get("is_share", "False")
 is_share = eval(is_share)
 if "_CUDA_VISIBLE_DEVICES" in os.environ:
@@ -93,7 +91,7 @@ punctuation = set(["!", "?", "…", ",", ".", "-", " "])
 import gradio as gr
 import librosa
 import numpy as np
-from feature_extractor import cnhubert
+from GPT_SoVITS.feature_extractor import cnhubert
 from transformers import AutoModelForMaskedLM, AutoTokenizer
 
 cnhubert.cnhubert_base_path = cnhubert_base_path
@@ -118,17 +116,15 @@ def set_seed(seed):
 
 from time import time as ttime
 
-from AR.models.t2s_lightning_module import Text2SemanticLightningModule
+from GPT_SoVITS.AR.models.t2s_lightning_module import Text2SemanticLightningModule
 from peft import LoraConfig, get_peft_model
-from text import cleaned_text_to_sequence
-from text.cleaner import clean_text
+from GPT_SoVITS.text import cleaned_text_to_sequence
+from GPT_SoVITS.text.cleaner import clean_text
 
 from tools.assets import css, js, top_html
 from tools.i18n.i18n import I18nAuto, scan_language_list
 
-language = os.environ.get("language", "Auto")
-language = sys.argv[-1] if sys.argv[-1] in scan_language_list() else language
-i18n = I18nAuto(language=language)
+i18n = I18nAuto(language="zh_CN")
 
 # os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'  # 确保直接启动推理UI时也能够设置。
 
@@ -159,6 +155,7 @@ dict_language_v2 = {
     i18n("多语种混合(粤语)"): "auto_yue",  # 多语种启动切分识别语种
 }
 dict_language = dict_language_v1 if version == "v1" else dict_language_v2
+print("使用语言字典:", dict_language)
 
 tokenizer = AutoTokenizer.from_pretrained(bert_path)
 bert_model = AutoModelForMaskedLM.from_pretrained(bert_path)
@@ -485,11 +482,9 @@ def init_hifigan():
         hifigan_model = hifigan_model.to(device)
 
 
-from sv import SV
-
-
 def init_sv_cn():
     global hifigan_model, bigvgan_model, sv_cn_model
+    from sv import SV
     sv_cn_model = SV(device, is_half)
     clean_bigvgan_model()
     clean_hifigan_model()
@@ -595,7 +590,7 @@ def get_first(text):
     return text
 
 
-from text import chinese
+from GPT_SoVITS.text import chinese
 
 
 def get_phones_and_bert(text, language, version, final=False):
@@ -667,7 +662,7 @@ def get_phones_and_bert(text, language, version, final=False):
     return phones, bert.to(dtype), norm_text
 
 
-from module.mel_processing import mel_spectrogram_torch, spectrogram_torch
+from GPT_SoVITS.module.mel_processing import mel_spectrogram_torch, spectrogram_torch
 
 spec_min = -12
 spec_max = 2
@@ -1129,225 +1124,3 @@ def html_left(text, label="p"):
     return f"""<div style="text-align: left; margin: 0; padding: 0;">
                 <{label} style="margin: 0; padding: 0;">{text}</{label}>
                 </div>"""
-
-
-with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css) as app:
-    gr.HTML(
-        top_html.format(
-            i18n("本软件以MIT协议开源, 作者不对软件具备任何控制力, 使用软件者、传播软件导出的声音者自负全责.")
-            + i18n("如不认可该条款, 则不能使用或引用软件包内任何代码和文件. 详见根目录LICENSE.")
-        ),
-        elem_classes="markdown",
-    )
-    with gr.Group():
-        gr.Markdown(html_center(i18n("模型切换"), "h3"))
-        with gr.Row():
-            GPT_dropdown = gr.Dropdown(
-                label=i18n("GPT模型列表"),
-                choices=sorted(GPT_names, key=custom_sort_key),
-                value=gpt_path,
-                interactive=True,
-                scale=14,
-            )
-            SoVITS_dropdown = gr.Dropdown(
-                label=i18n("SoVITS模型列表"),
-                choices=sorted(SoVITS_names, key=custom_sort_key),
-                value=sovits_path,
-                interactive=True,
-                scale=14,
-            )
-            refresh_button = gr.Button(i18n("刷新模型路径"), variant="primary", scale=14)
-            refresh_button.click(fn=change_choices, inputs=[], outputs=[SoVITS_dropdown, GPT_dropdown])
-        gr.Markdown(html_center(i18n("*请上传并填写参考信息"), "h3"))
-        with gr.Row():
-            inp_ref = gr.Audio(label=i18n("请上传3~10秒内参考音频，超过会报错！"), type="filepath", scale=13)
-            with gr.Column(scale=13):
-                ref_text_free = gr.Checkbox(
-                    label=i18n("开启无参考文本模式。不填参考文本亦相当于开启。")
-                    + i18n("v3暂不支持该模式，使用了会报错。"),
-                    value=False,
-                    interactive=True if model_version not in v3v4set else False,
-                    show_label=True,
-                    scale=1,
-                )
-                gr.Markdown(
-                    html_left(
-                        i18n("使用无参考文本模式时建议使用微调的GPT")
-                        + "<br>"
-                        + i18n("听不清参考音频说的啥(不晓得写啥)可以开。开启后无视填写的参考文本。")
-                    )
-                )
-                prompt_text = gr.Textbox(label=i18n("参考音频的文本"), value="", lines=5, max_lines=5, scale=1)
-            with gr.Column(scale=14):
-                prompt_language = gr.Dropdown(
-                    label=i18n("参考音频的语种"),
-                    choices=list(dict_language.keys()),
-                    value=i18n("中文"),
-                )
-                inp_refs = (
-                    gr.File(
-                        label=i18n(
-                            "可选项：通过拖拽多个文件上传多个参考音频（建议同性），平均融合他们的音色。如不填写此项，音色由左侧单个参考音频控制。如是微调模型，建议参考音频全部在微调训练集音色内，底模不用管。"
-                        ),
-                        file_count="multiple",
-                    )
-                    if model_version not in v3v4set
-                    else gr.File(
-                        label=i18n(
-                            "可选项：通过拖拽多个文件上传多个参考音频（建议同性），平均融合他们的音色。如不填写此项，音色由左侧单个参考音频控制。如是微调模型，建议参考音频全部在微调训练集音色内，底模不用管。"
-                        ),
-                        file_count="multiple",
-                        visible=False,
-                    )
-                )
-                sample_steps = (
-                    gr.Radio(
-                        label=i18n("采样步数,如果觉得电,提高试试,如果觉得慢,降低试试"),
-                        value=32 if model_version == "v3" else 8,
-                        choices=[4, 8, 16, 32, 64, 128] if model_version == "v3" else [4, 8, 16, 32],
-                        visible=True,
-                    )
-                    if model_version in v3v4set
-                    else gr.Radio(
-                        label=i18n("采样步数,如果觉得电,提高试试,如果觉得慢,降低试试"),
-                        choices=[4, 8, 16, 32, 64, 128] if model_version == "v3" else [4, 8, 16, 32],
-                        visible=False,
-                        value=32 if model_version == "v3" else 8,
-                    )
-                )
-                if_sr_Checkbox = gr.Checkbox(
-                    label=i18n("v3输出如果觉得闷可以试试开超分"),
-                    value=False,
-                    interactive=True,
-                    show_label=True,
-                    visible=False if model_version != "v3" else True,
-                )
-        gr.Markdown(html_center(i18n("*请填写需要合成的目标文本和语种模式"), "h3"))
-        with gr.Row():
-            with gr.Column(scale=13):
-                text = gr.Textbox(label=i18n("需要合成的文本"), value="", lines=26, max_lines=26)
-            with gr.Column(scale=7):
-                text_language = gr.Dropdown(
-                    label=i18n("需要合成的语种") + i18n(".限制范围越小判别效果越好。"),
-                    choices=list(dict_language.keys()),
-                    value=i18n("中文"),
-                    scale=1,
-                )
-                how_to_cut = gr.Dropdown(
-                    label=i18n("怎么切"),
-                    choices=[
-                        i18n("不切"),
-                        i18n("凑四句一切"),
-                        i18n("凑50字一切"),
-                        i18n("按中文句号。切"),
-                        i18n("按英文句号.切"),
-                        i18n("按标点符号切"),
-                    ],
-                    value=i18n("凑四句一切"),
-                    interactive=True,
-                    scale=1,
-                )
-                gr.Markdown(value=html_center(i18n("语速调整，高为更快")))
-                if_freeze = gr.Checkbox(
-                    label=i18n("是否直接对上次合成结果调整语速和音色。防止随机性。"),
-                    value=False,
-                    interactive=True,
-                    show_label=True,
-                    scale=1,
-                )
-                with gr.Row():
-                    speed = gr.Slider(
-                        minimum=0.6, maximum=1.65, step=0.05, label=i18n("语速"), value=1, interactive=True, scale=1
-                    )
-                    pause_second_slider = gr.Slider(
-                        minimum=0.1,
-                        maximum=0.5,
-                        step=0.01,
-                        label=i18n("句间停顿秒数"),
-                        value=0.3,
-                        interactive=True,
-                        scale=1,
-                    )
-                gr.Markdown(html_center(i18n("GPT采样参数(无参考文本时不要太低。不懂就用默认)：")))
-                top_k = gr.Slider(
-                    minimum=1, maximum=100, step=1, label=i18n("top_k"), value=15, interactive=True, scale=1
-                )
-                top_p = gr.Slider(
-                    minimum=0, maximum=1, step=0.05, label=i18n("top_p"), value=1, interactive=True, scale=1
-                )
-                temperature = gr.Slider(
-                    minimum=0, maximum=1, step=0.05, label=i18n("temperature"), value=1, interactive=True, scale=1
-                )
-            # with gr.Column():
-            #     gr.Markdown(value=i18n("手工调整音素。当音素框不为空时使用手工音素输入推理，无视目标文本框。"))
-            #     phoneme=gr.Textbox(label=i18n("音素框"), value="")
-            #     get_phoneme_button = gr.Button(i18n("目标文本转音素"), variant="primary")
-        with gr.Row():
-            inference_button = gr.Button(value=i18n("合成语音"), variant="primary", size="lg", scale=25)
-            output = gr.Audio(label=i18n("输出的语音"), scale=14)
-
-        inference_button.click(
-            get_tts_wav,
-            [
-                inp_ref,
-                prompt_text,
-                prompt_language,
-                text,
-                text_language,
-                how_to_cut,
-                top_k,
-                top_p,
-                temperature,
-                ref_text_free,
-                speed,
-                if_freeze,
-                inp_refs,
-                sample_steps,
-                if_sr_Checkbox,
-                pause_second_slider,
-            ],
-            [output],
-        )
-        SoVITS_dropdown.change(
-            change_sovits_weights,
-            [SoVITS_dropdown, prompt_language, text_language],
-            [
-                prompt_language,
-                text_language,
-                prompt_text,
-                prompt_language,
-                text,
-                text_language,
-                sample_steps,
-                inp_refs,
-                ref_text_free,
-                if_sr_Checkbox,
-                inference_button,
-            ],
-        )
-        GPT_dropdown.change(change_gpt_weights, [GPT_dropdown], [])
-
-        # gr.Markdown(value=i18n("文本切分工具。太长的文本合成出来效果不一定好，所以太长建议先切。合成会根据文本的换行分开合成再拼起来。"))
-        # with gr.Row():
-        #     text_inp = gr.Textbox(label=i18n("需要合成的切分前文本"), value="")
-        #     button1 = gr.Button(i18n("凑四句一切"), variant="primary")
-        #     button2 = gr.Button(i18n("凑50字一切"), variant="primary")
-        #     button3 = gr.Button(i18n("按中文句号。切"), variant="primary")
-        #     button4 = gr.Button(i18n("按英文句号.切"), variant="primary")
-        #     button5 = gr.Button(i18n("按标点符号切"), variant="primary")
-        #     text_opt = gr.Textbox(label=i18n("切分后文本"), value="")
-        #     button1.click(cut1, [text_inp], [text_opt])
-        #     button2.click(cut2, [text_inp], [text_opt])
-        #     button3.click(cut3, [text_inp], [text_opt])
-        #     button4.click(cut4, [text_inp], [text_opt])
-        #     button5.click(cut5, [text_inp], [text_opt])
-        # gr.Markdown(html_center(i18n("后续将支持转音素、手工修改音素、语音合成分步执行。")))
-
-if __name__ == "__main__":
-    app.queue().launch(  # concurrency_count=511, max_size=1022
-        server_name="0.0.0.0",
-        inbrowser=True,
-        share=is_share,
-        server_port=infer_ttswebui,
-        # quiet=True,
-    )

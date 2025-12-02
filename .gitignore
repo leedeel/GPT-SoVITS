@@ -193,3 +193,6 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+gpt_sovits_local
+models

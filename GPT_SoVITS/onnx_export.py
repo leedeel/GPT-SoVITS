@@ -1,8 +1,8 @@
 import torch
 import torchaudio
-from AR.models.t2s_lightning_module_onnx import Text2SemanticLightningModule
+from GPT_SoVITS.AR.models.t2s_lightning_module_onnx import Text2SemanticLightningModule
 from feature_extractor import cnhubert
-from module.models_onnx import SynthesizerTrn, symbols_v1, symbols_v2
+from GPT_SoVITS.module.models_onnx import SynthesizerTrn, symbols_v1, symbols_v2
 from torch import nn
 
 cnhubert_base_path = "GPT_SoVITS/pretrained_models/chinese-hubert-base"
@@ -12,7 +12,7 @@ import json
 import os
 
 import soundfile
-from text import cleaned_text_to_sequence
+from GPT_SoVITS.text import cleaned_text_to_sequence
 
 
 def spectrogram_torch(y, n_fft, sampling_rate, hop_size, win_size, center=False):

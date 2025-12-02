@@ -252,46 +252,6 @@ elif [ "$USE_MODELSCOPE" = "true" ]; then
     PYOPENJTALK_URL="https://www.modelscope.cn/models/XXXXRT/GPT-SoVITS-Pretrained/resolve/master/open_jtalk_dic_utf_8-1.11.tar.gz"
 fi
 
-if [ ! -d "GPT_SoVITS/pretrained_models/sv" ]; then
-    echo -e "${INFO}Downloading Pretrained Models..."
-    rm -rf pretrained_models.zip
-    run_wget_quiet "$PRETRINED_URL"
-
-    unzip -q -o pretrained_models.zip -d GPT_SoVITS
-    rm -rf pretrained_models.zip
-    echo -e "${SUCCESS}Pretrained Models Downloaded"
-else
-    echo -e "${INFO}Pretrained Model Exists"
-    echo -e "${INFO}Skip Downloading Pretrained Models"
-fi
-
-if [ ! -d "GPT_SoVITS/text/G2PWModel" ]; then
-    echo -e "${INFO}Downloading G2PWModel.."
-    rm -rf G2PWModel.zip
-    run_wget_quiet "$G2PW_URL"
-
-    unzip -q -o G2PWModel.zip -d GPT_SoVITS/text
-    rm -rf G2PWModel.zip
-    echo -e "${SUCCESS}G2PWModel Downloaded"
-else
-    echo -e "${INFO}G2PWModel Exists"
-    echo -e "${INFO}Skip Downloading G2PWModel"
-fi
-
-if [ "$DOWNLOAD_UVR5" = "true" ]; then
-    if find -L "tools/uvr5/uvr5_weights" -mindepth 1 ! -name '.gitignore' | grep -q .; then
-        echo -e"${INFO}UVR5 Models Exists"
-        echo -e "${INFO}Skip Downloading UVR5 Models"
-    else
-        echo -e "${INFO}Downloading UVR5 Models..."
-        rm -rf uvr5_weights.zip
-        run_wget_quiet "$UVR5_URL"
-
-        unzip -q -o uvr5_weights.zip -d tools/uvr5
-        rm -rf uvr5_weights.zip
-        echo -e "${SUCCESS}UVR5 Models Downloaded"
-    fi
-fi
 
 if [ "$USE_CUDA" = true ] && [ "$WORKFLOW" = false ]; then
     echo -e "${INFO}Checking For Nvidia Driver Installation..."
@@ -345,9 +305,9 @@ echo -e "${INFO}Installing Python Dependencies From requirements.txt..."
 
 hash -r
 
-run_pip_quiet -r extra-req.txt --no-deps
+run_pip_quiet -r extra-req.txt --no-deps -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-run_pip_quiet -r requirements.txt
+run_pip_quiet -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 echo -e "${SUCCESS}Python Dependencies Installed"
 

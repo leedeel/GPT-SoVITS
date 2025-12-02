@@ -154,7 +154,7 @@ class Slicer:
 
 def main():
     import os.path
-    from argparse import ArgumentParser
+    from GPT_SoVITS.ARgparse import ArgumentParser
 
     import librosa
     import soundfile
