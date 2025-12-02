@@ -2,7 +2,7 @@
 import os
 import sys
 from transformers import AutoModelForMaskedLM, AutoTokenizer
-from api_interface.config import (is_half,device)
+from api_interface.config import (bert_path,cnhubert_path)
 from tools import my_utils
 from GPT_SoVITS.text.cleaner import clean_text
 from time import time as ttime
@@ -10,6 +10,7 @@ import shutil
 import torch
 import json
 from api_interface.interface_train_tfe_fn import train_tfe
+from api_interface.interface_train_ssl_fn import train_ssl
 
 
 def open1abc(
@@ -21,8 +22,6 @@ def open1abc(
     gpu_numbers1a,
     gpu_numbers1Ba,
     gpu_numbers1c,
-    bert_pretrained_dir,
-    ssl_pretrained_dir,
     pretrained_s2G_path,
     language:str = "zh"
 ):
@@ -43,9 +42,12 @@ def open1abc(
                                       opt_dir=opt_dir,
                                       train_dataset_list=train_dataset_list,
                                       language=language,
-                                      bert_pretrained_dir=bert_pretrained_dir)
+                                      bert_pretrained_dir=bert_path)
     
     # 2.语音自监督特征提取
+    train_ssl(opt_dir=opt_dir,
+              train_dataset_list=train_dataset_list,
+              ssl_pretrained_dir=cnhubert_path)
     
     
     

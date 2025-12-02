@@ -1,12 +1,10 @@
 import os
-import sys
 from transformers import AutoModelForMaskedLM, AutoTokenizer
-from api_interface.config import (is_half,device)
+from api_interface.config import (is_half)
 from GPT_SoVITS.text.cleaner import clean_text
-from time import time as ttime
-import shutil
 import torch
 import json
+from api_interface.interface_dataset_common_fn import get_device,get_bert_dir,save_pth
 
 language_v1_to_language_v2 = {
     "ZH": "zh",
@@ -27,19 +25,11 @@ language_v1_to_language_v2 = {
 }
 
 
-def my_save(fea, path):  #####fix issue: torch.save doesn't support chinese path
-    dir = os.path.dirname(path)
-    name = os.path.basename(path)
-    # tmp_path="%s/%s%s.pth"%(dir,ttime(),i_part)
-    tmp_path = "%s.pth" % (ttime())
-    torch.save(fea, tmp_path)
-    shutil.move(tmp_path, "%s/%s" % (dir, name))
-
-
 def process_tfe(wav_path:str, 
                 text:str, 
                 language:str,
                 version:str,
+                device:str,
                 bert_dir:str,
                 bert_model:any,
                 tokenizer:any,
@@ -69,9 +59,10 @@ def process_tfe(wav_path:str,
             bert_feature = get_bert_feature(bert_model=bert_model,
                                             tokenizer=tokenizer,
                                             text=norm_text,
+                                            device=device,
                                             word2ph=word2ph)
             assert bert_feature.shape[-1] == len(phones)
-            my_save(bert_feature, path_bert)
+            save_pth(bert_feature, path_bert)
             phones = " ".join(phones)
         return [wav_name, phones, word2ph, norm_text]
     except Exception as e:
@@ -80,7 +71,7 @@ def process_tfe(wav_path:str,
 
 
 
-def get_bert_feature(bert_model, tokenizer, text, word2ph):
+def get_bert_feature(bert_model, tokenizer, text, word2ph,device):
     with torch.no_grad():
         inputs = tokenizer(text, return_tensors="pt")
         for i in inputs:
@@ -114,10 +105,6 @@ def train_tfe(version:str,
     - wav_path: 音频路径
     
     """
-    if torch.cuda.is_available():
-        device = "cuda:0"
-    else:
-        device = "cpu"
     if not os.path.exists(bert_pretrained_dir):
         raise FileNotFoundError(bert_pretrained_dir)
     # 1.文本分词特征提取
@@ -143,8 +130,8 @@ def train_tfe(version:str,
         except:
             print(f"{dataset}加入训练任务失败")
     
-    bert_dir = os.path.join(opt_dir, "3-bert")
-    os.makedirs(bert_dir, exist_ok=True)
+    bert_dir = get_bert_dir(opt_dir=opt_dir)
+    device = get_device()
     result_list = []
     for todo in todo_list:
         wav_path, text, lan = todo
@@ -152,6 +139,7 @@ def train_tfe(version:str,
                                      text=text, 
                                      language=lan,
                                      version=version,
+                                     device=device,
                                      bert_dir=bert_dir,
                                      bert_model=bert_model,
                                      tokenizer=tokenizer)
