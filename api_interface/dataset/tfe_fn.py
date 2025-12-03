@@ -112,6 +112,7 @@ def train_tfe(version:str,
         return tfe_process_file_path
     tokenizer = AutoTokenizer.from_pretrained(bert_path)
     bert_model = AutoModelForMaskedLM.from_pretrained(bert_path)
+    device = get_device()
     if is_half == True:
         bert_model = bert_model.half().to(device)
     else:
@@ -130,7 +131,6 @@ def train_tfe(version:str,
             print(f"{dataset}加入训练任务失败")
     
     bert_dir = get_bert_dir(opt_dir=opt_dir)
-    device = get_device()
     result_list = []
     for todo in todo_list:
         wav_path, text, lan = todo

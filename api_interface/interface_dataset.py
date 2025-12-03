@@ -28,7 +28,7 @@ def process_json_with_audio(json_data:str, audio_files:list[gr.Audio])->list[dic
         
         return results
     except json.JSONDecodeError:
-        return "JSON格式错误"
+        return []
 
 def train_dataset_api(version:str,
                       exp_name:str,
@@ -45,6 +45,8 @@ def train_dataset_api(version:str,
     """
     try:
         train_dataset_list = process_json_with_audio(json_data=audio_json, audio_files=audio_files)
+        if len(train_dataset_list) == 0:
+            return {"status": "error", "message": "音频JSON数据解析失败"}
         
         train_dataset(version=version,
                     train_dataset_list=train_dataset_list,
