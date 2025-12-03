@@ -218,7 +218,7 @@ def create_tts_app():
             # 输入区域
             with gr.Column(scale=4):
                 # 模型选择行
-                with gr.Row(scale=2):
+                with gr.Row():
                     # SoVITS 模型选择
                     sovits_dropdown = gr.Dropdown(
                         label=i18n("SoVITS模型列表"),
@@ -255,7 +255,7 @@ def create_tts_app():
                         )
                 
                 # 其他输入参数
-                with gr.Row(scale=4):
+                with gr.Row():
                     ref_audio = gr.Audio(
                         label="参考音频",
                         type="filepath",
@@ -268,7 +268,7 @@ def create_tts_app():
                         scale=6
                     )
                 
-                with gr.Row(scale=1):
+                with gr.Row():
                     prompt_language = gr.Dropdown(
                         choices=language_choices,
                         label="提示文本语言",
@@ -383,13 +383,13 @@ def create_tts_app():
                         )
                 
                 # 提交按钮和输出区域
-                with gr.Row(scale=1):
+                with gr.Row():
                     submit_btn = gr.Button("开始合成", variant="primary", scale=2)
             # 输出区域
             with gr.Column(scale=1):
-                with gr.Row(scale=2):
+                with gr.Row():
                     audio_output = gr.Audio(label="生成音频", type="numpy", scale=12)
-                with gr.Row(scale=1):
+                with gr.Row():
                     json_output = gr.JSON(label="生成信息" )
             
         # 刷新按钮的事件绑定
