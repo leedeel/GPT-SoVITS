@@ -78,5 +78,5 @@ docker build \
     --build-arg LITE=$LITE \
     --build-arg TARGETPLATFORM="$TARGETPLATFORM" \
     --build-arg TORCH_BASE=$TORCH_BASE \
-    -t "${USER}/gpt-sovits:local" \
+    -t "${USER}/gpt-sovits:local_train" \
     .
