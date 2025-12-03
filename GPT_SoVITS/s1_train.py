@@ -168,4 +168,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     logging.info(str(args))
-    main(args)
+    try:
+        main(args)
+    except KeyboardInterrupt:
+        print("训练被用户中断")
+    except Exception as e:
+        print(f"训练出错: {e}")
+    finally:
+        # 清理代码
+        import torch
+        if torch.distributed.is_initialized():
+            torch.distributed.destroy_process_group()

@@ -1,5 +1,7 @@
 import os
 import json
+import gc
+import torch
 from api_interface.config import (
     exp_root,
     python_exec,
@@ -10,7 +12,7 @@ from api_interface.config import (
 )
 from tools.my_utils import check_details, check_for_existance
 from subprocess import Popen
-from api_interface.model_training.common import get_tmp_dir
+from api_interface.model_training.common import get_tmp_dir,check_memory_usage
 
 
 gpus = "-".join(map(str, GPU_INDEX))
@@ -51,7 +53,7 @@ def train_sovits(
     global p_train_SoVITS
     if p_train_SoVITS != None:
         return {"code":-1, "msg": "SoVITS模型正在训练中"}
-    
+    check_memory_usage()
     exp_name = exp_name.rstrip(" ")
     config_file = (
         "GPT_SoVITS/configs/s2.json"
@@ -99,4 +101,12 @@ def train_sovits(
     p_train_SoVITS = Popen(cmd, shell=True)
     p_train_SoVITS.wait()
     p_train_SoVITS = None
+    release_model()
+    check_memory_usage()
     return {"code":0, "msg": "SoVITS模型训练完成"}
+
+def release_model():
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+    gc.collect()

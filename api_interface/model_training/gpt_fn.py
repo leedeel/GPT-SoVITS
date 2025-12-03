@@ -11,7 +11,9 @@ from tools.my_utils import check_details, check_for_existance
 from subprocess import Popen
 import yaml
 import os
-from api_interface.model_training.common import get_tmp_dir
+import gc
+import torch
+from api_interface.model_training.common import get_tmp_dir,check_memory_usage
 
 gpus = "-".join(map(str, GPU_INDEX))
 default_gpu_numbers = infer_device.index
@@ -58,7 +60,7 @@ def train_gpt(
     global p_train_GPT
     if p_train_GPT != None:
         return {"code":-1, "msg": "GPT模型正在训练中"}
-    
+    check_memory_usage()
     exp_name = exp_name.rstrip(" ")
     with open(
         "GPT_SoVITS/configs/s1longer.yaml" if version == "v1" else "GPT_SoVITS/configs/s1longer-v2.yaml"
@@ -100,4 +102,12 @@ def train_gpt(
     p_train_GPT = Popen(cmd, shell=True)
     p_train_GPT.wait()
     p_train_GPT = None
+    release_model()
+    check_memory_usage()
     return {"code":0, "msg": "GPT模型训练完成"}
+
+def release_model():
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+    gc.collect()
