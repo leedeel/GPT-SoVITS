@@ -129,6 +129,7 @@ def train_tfe(version:str,
                 print(f"[Waring] The {language = } of {wav_path} is not supported for training.")
         except Exception as e:
             print(f"{dataset}加入训练任务失败: {e}")
+            raise e
     
     bert_dir = get_bert_dir(opt_dir=opt_dir)
     result_list = []

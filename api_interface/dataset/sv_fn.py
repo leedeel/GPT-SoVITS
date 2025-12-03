@@ -87,3 +87,4 @@ def train_sv(opt_dir:str,
                     wav32dir=wav32dir)
         except Exception as e:
             print(f"{dataset}加入训练任务失败,原因:{e}")
+            raise e

@@ -105,3 +105,4 @@ def train_ssl(opt_dir:str,
                         device=device)
             except Exception as e:
                 print(f"{wav}加入训练任务失败,原因:{e}")
+                raise e
