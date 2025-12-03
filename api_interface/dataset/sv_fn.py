@@ -1,5 +1,6 @@
 import torch
 import os
+import gc
 import torchaudio
 from api_interface.config import (is_half,sv_path)
 from api_interface.dataset.common import (get_device,save_pth,get_sv_cn_dir,get_wav32dir)
@@ -35,6 +36,11 @@ class SV:
             )
             sv_emb = self.embedding_model.forward3(feat)
         return sv_emb
+    
+    def release(self):
+        if self.embedding_model is not None:
+            self.embedding_model.cpu()
+            del self.embedding_model
 
 def name2go(wav_name:str,
             device:str,
@@ -75,16 +81,26 @@ def train_sv(opt_dir:str,
     sv = SV(device=device,sv_path=sv_path)
     sv_cn_dir = get_sv_cn_dir(opt_dir=opt_dir)
     wav32dir = get_wav32dir(opt_dir=opt_dir)
-    for dataset in train_dataset_list:
-        try:
-            text = dataset.get("text")
-            wav_path = dataset.get("wav_path")
-            wav_name = os.path.basename(wav_path)
-            name2go(wav_name=wav_name,
-                    device=device,
-                    sv=sv,
-                    sv_cn_dir=sv_cn_dir,
-                    wav32dir=wav32dir)
-        except Exception as e:
-            print(f"{dataset}加入训练任务失败,原因:{e}")
-            raise e
+    try:
+        for dataset in train_dataset_list:
+            try:
+                text = dataset.get("text")
+                wav_path = dataset.get("wav_path")
+                wav_name = os.path.basename(wav_path)
+                name2go(wav_name=wav_name,
+                        device=device,
+                        sv=sv,
+                        sv_cn_dir=sv_cn_dir,
+                        wav32dir=wav32dir)
+            except Exception as e:
+                print(f"{dataset}加入训练任务失败,原因:{e}")
+                raise e
+    except Exception as e:
+        print(f"训练sv失败,原因:{e}")
+        raise e
+    finally:
+        sv.release()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+        gc.collect()

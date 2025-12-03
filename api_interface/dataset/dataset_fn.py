@@ -5,6 +5,7 @@ from api_interface.dataset.tfe_fn import train_tfe
 from api_interface.dataset.ssl_fn import train_ssl
 from api_interface.dataset.sv_fn import train_sv
 from api_interface.dataset.semantic_token_fn import train_semantic_token
+from api_interface.dataset.common import check_memory_usage
 
 
 def train_dataset(
@@ -28,23 +29,27 @@ def train_dataset(
     
     # 1.文本分词特征提取
     print(f"1.文本分词特征提取")
+    check_memory_usage()
     train_tfe(version=version,
               opt_dir=opt_dir,
               train_dataset_list=train_dataset_list,
               language=language)
     print(f"1.文本分词特征提取完成")
+    check_memory_usage()
     
     # 2.语音自监督特征提取
     print(f"2.语音自监督特征提取")
     train_ssl(opt_dir=opt_dir,
               train_dataset_list=train_dataset_list)
     print(f"2.语音自监督特征提取完成")
+    check_memory_usage()
     if "Pro" in version:
         # 3.声纹训练
         print(f"3.声纹训练")
         train_sv(opt_dir=opt_dir,
                  train_dataset_list=train_dataset_list)
         print(f"3.声纹训练完成")
+        check_memory_usage()
     
     # 4.语义token提取
     print(f"4.语义token提取")
@@ -52,6 +57,7 @@ def train_dataset(
                          version=version,
                          train_dataset_list=train_dataset_list)
     print(f"4.语义token提取完成")
+    check_memory_usage()
     
     
     

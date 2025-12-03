@@ -1,5 +1,6 @@
 import os
 import torch
+import gc
 import GPT_SoVITS.utils as utils
 from api_interface.config import (is_half,pretrained_sovits_name)
 from api_interface.dataset.common import (get_device,get_hubert_dir,get_semantic_path)
@@ -69,34 +70,47 @@ def train_semantic_token(opt_dir:str,
         version=version,
         **hps.model,
     )
-    if is_half == True:
-        vq_model = vq_model.half().to(device)
-    else:
-        vq_model = vq_model.to(device)
-    vq_model.eval()
-    vq_model.load_state_dict(
-            torch.load(pretrained_s2G, map_location="cpu", weights_only=False)["weight"], strict=False
-        )
-    hubert_dir = get_hubert_dir(opt_dir=opt_dir)
-    
-    result_list = ["item_name\tsemantic_audio"]
-    for dataset in train_dataset_list:
-        try:
-            text = dataset.get("text")
-            wav_path = dataset.get("wav_path")
-            wav_name = os.path.basename(wav_path)
-            semantic = name2go(wav_name=wav_name,
-                               hubert_dir=hubert_dir,
-                               device=device,
-                               vq_model=vq_model)
-            result_list.append(semantic)
-        except Exception as e:
-            print(f"语义token提取失败:{dataset},{e}")
-            raise e
-    
-    with open(semantic_path, "w", encoding="utf8") as f:
-        f.write("\n".join(result_list))
-    return semantic_path
+    try:
+        if is_half == True:
+            vq_model = vq_model.half().to(device)
+        else:
+            vq_model = vq_model.to(device)
+        vq_model.eval()
+        vq_model.load_state_dict(
+                torch.load(pretrained_s2G, map_location="cpu", weights_only=False)["weight"], strict=False
+            )
+        hubert_dir = get_hubert_dir(opt_dir=opt_dir)
+        
+        result_list = ["item_name\tsemantic_audio"]
+        for dataset in train_dataset_list:
+            try:
+                text = dataset.get("text")
+                wav_path = dataset.get("wav_path")
+                wav_name = os.path.basename(wav_path)
+                semantic = name2go(wav_name=wav_name,
+                                hubert_dir=hubert_dir,
+                                device=device,
+                                vq_model=vq_model)
+                result_list.append(semantic)
+            except Exception as e:
+                print(f"语义token提取失败:{dataset},{e}")
+                raise e
+        
+        with open(semantic_path, "w", encoding="utf8") as f:
+            f.write("\n".join(result_list))
+        return semantic_path
+    except Exception as e:
+        print(f"语义token提取失败:{e}")
+        raise e
+    finally:
+        if vq_model is not None:
+            vq_model.cpu()
+            del vq_model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+        gc.collect()
+
         
 
 def name2go(wav_name:str,hubert_dir:str,device:str,vq_model:any):

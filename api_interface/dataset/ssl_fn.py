@@ -1,5 +1,6 @@
 import os
 import torch
+import gc
 from api_interface.config import (is_half,cnhubert_path)
 from GPT_SoVITS.feature_extractor import cnhubert
 import numpy as np
@@ -73,36 +74,49 @@ def train_ssl(opt_dir:str,
     device = get_device()
     model = init_cnhubert_model(ssl_pretrained_dir=cnhubert_path,
                                 device=device)
-    nan_fails = []
-    hubert_dir = get_hubert_dir(opt_dir=opt_dir)
-    wav32dir = get_wav32dir(opt_dir=opt_dir)
-    for dataset in train_dataset_list:
-        try:
-            text = dataset.get("text")
-            wav_path = dataset.get("wav_path")
-            wav_name = os.path.basename(wav_path)
-            name2go(wav_name=wav_name,
-                    wav_path=wav_path,
-                    hubert_dir=hubert_dir,
-                    wav32dir=wav32dir,
-                    nan_fails=nan_fails,
-                    model=model,
-                    device=device)
-        except Exception as e:
-            print(f"{dataset}加入训练任务失败,原因:{e}")
-            
-    if len(nan_fails) > 0 and is_half == True:
-        is_half = False
-        model = model.float()
-        for wav in nan_fails:
+    try:
+        nan_fails = []
+        hubert_dir = get_hubert_dir(opt_dir=opt_dir)
+        wav32dir = get_wav32dir(opt_dir=opt_dir)
+        for dataset in train_dataset_list:
             try:
-                name2go(wav_name=wav[0], 
-                        wav_path=wav[1],
+                text = dataset.get("text")
+                wav_path = dataset.get("wav_path")
+                wav_name = os.path.basename(wav_path)
+                name2go(wav_name=wav_name,
+                        wav_path=wav_path,
                         hubert_dir=hubert_dir,
                         wav32dir=wav32dir,
                         nan_fails=nan_fails,
                         model=model,
                         device=device)
             except Exception as e:
-                print(f"{wav}加入训练任务失败,原因:{e}")
-                raise e
+                print(f"{dataset}加入训练任务失败,原因:{e}")
+                
+        if len(nan_fails) > 0 and is_half == True:
+            is_half = False
+            model = model.float()
+            for wav in nan_fails:
+                try:
+                    name2go(wav_name=wav[0], 
+                            wav_path=wav[1],
+                            hubert_dir=hubert_dir,
+                            wav32dir=wav32dir,
+                            nan_fails=nan_fails,
+                            model=model,
+                            device=device)
+                except Exception as e:
+                    print(f"{wav}加入训练任务失败,原因:{e}")
+                    raise e
+    except Exception as e:
+        print(f"ssl训练失败,原因:{e}")
+        raise e
+    finally:
+        # 无论是否异常，都会执行清理
+        if model is not None:
+            model.cpu()
+            del model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+        gc.collect()

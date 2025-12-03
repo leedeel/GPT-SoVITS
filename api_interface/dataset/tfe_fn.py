@@ -4,6 +4,7 @@ from api_interface.config import (is_half,bert_path)
 from GPT_SoVITS.text.cleaner import clean_text
 import torch
 from api_interface.dataset.common import get_device,get_bert_dir,save_pth,get_tfe_file_path
+import gc
 
 language_v1_to_language_v2 = {
     "ZH": "zh",
@@ -116,38 +117,53 @@ def train_tfe(version:str,
         bert_model = bert_model.half().to(device)
     else:
         bert_model = bert_model.to(device)
-    todo_list = []
-    # 向每个gpu分配若干任务
-    for dataset in train_dataset_list:
-        try:
-            text = dataset.get("text")
-            wav_path = dataset.get("wav_path")
-            if language in language_v1_to_language_v2.keys():
-                todo_list.append([wav_path, text, language_v1_to_language_v2.get(language, language)])
-            else:
-                print(f"[Waring] The {language = } of {wav_path} is not supported for training.")
-        except Exception as e:
-            print(f"{dataset}加入训练任务失败: {e}")
-            raise e
-    
-    bert_dir = get_bert_dir(opt_dir=opt_dir)
-    result_list = []
-    for todo in todo_list:
-        wav_path, text, lan = todo
-        process_result = process_tfe(wav_path=wav_path, 
-                                     text=text, 
-                                     language=lan,
-                                     version=version,
-                                     device=device,
-                                     bert_dir=bert_dir,
-                                     bert_model=bert_model,
-                                     tokenizer=tokenizer)
-        if process_result is not None:
-            result_list.append(process_result)
-    opt = []
-    for name, phones, word2ph, norm_text in result_list:
-        opt.append("%s\t%s\t%s\t%s" % (name, phones, word2ph, norm_text))
-    with open(tfe_process_file_path, "w", encoding="utf8") as f:
-        f.write("\n".join(opt) + "\n")
-    return tfe_process_file_path
+    try:
+        todo_list = []
+        # 向每个gpu分配若干任务
+        for dataset in train_dataset_list:
+            try:
+                text = dataset.get("text")
+                wav_path = dataset.get("wav_path")
+                if language in language_v1_to_language_v2.keys():
+                    todo_list.append([wav_path, text, language_v1_to_language_v2.get(language, language)])
+                else:
+                    print(f"[Waring] The {language = } of {wav_path} is not supported for training.")
+            except Exception as e:
+                print(f"{dataset}加入训练任务失败: {e}")
+                raise e
+        
+        bert_dir = get_bert_dir(opt_dir=opt_dir)
+        result_list = []
+        for todo in todo_list:
+            wav_path, text, lan = todo
+            process_result = process_tfe(wav_path=wav_path, 
+                                        text=text, 
+                                        language=lan,
+                                        version=version,
+                                        device=device,
+                                        bert_dir=bert_dir,
+                                        bert_model=bert_model,
+                                        tokenizer=tokenizer)
+            if process_result is not None:
+                result_list.append(process_result)
+        opt = []
+        for name, phones, word2ph, norm_text in result_list:
+            opt.append("%s\t%s\t%s\t%s" % (name, phones, word2ph, norm_text))
+        with open(tfe_process_file_path, "w", encoding="utf8") as f:
+            f.write("\n".join(opt) + "\n")
+        return tfe_process_file_path
+    except Exception as e:
+        print(f"文本分词特征提取失败: {e}")
+        raise e
+    finally:
+        # 无论是否异常，都会执行清理
+        if bert_model is not None:
+            bert_model.cpu()
+            del bert_model
+        if tokenizer is not None:
+            del tokenizer
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+        gc.collect()
     
