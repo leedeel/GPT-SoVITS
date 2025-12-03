@@ -79,7 +79,7 @@ def train_semantic_token(opt_dir:str,
         )
     hubert_dir = get_hubert_dir(opt_dir=opt_dir)
     
-    result_list = []
+    result_list = ["item_name\tsemantic_audio"]
     for dataset in train_dataset_list:
         try:
             text = dataset.get("text")
