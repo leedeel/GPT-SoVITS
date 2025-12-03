@@ -1,4 +1,5 @@
 import gradio as gr
+import os
 import json
 from api_interface.dataset.dataset_fn import train_dataset
 
@@ -54,6 +55,13 @@ def train_dataset_api(version:str,
         return {"status": "success", "message": "数据集训练成功"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+    finally:
+        # 删除临时文件
+        if train_dataset_list and len(train_dataset_list) > 0:
+            for dataset in train_dataset_list:
+                wav_path = dataset.get("wav_path")
+                if wav_path:
+                    os.remove(wav_path)
 
 
 def create_dataset_app():
