@@ -218,7 +218,7 @@ def create_tts_app():
             # 输入区域
             with gr.Column(scale=4):
                 # 模型选择行
-                with gr.Row():
+                with gr.Row(scale=2):
                     # SoVITS 模型选择
                     sovits_dropdown = gr.Dropdown(
                         label=i18n("SoVITS模型列表"),
@@ -255,7 +255,7 @@ def create_tts_app():
                         )
                 
                 # 其他输入参数
-                with gr.Row():
+                with gr.Row(scale=4):
                     ref_audio = gr.Audio(
                         label="参考音频",
                         type="filepath",
@@ -268,7 +268,7 @@ def create_tts_app():
                         scale=6
                     )
                 
-                with gr.Row():
+                with gr.Row(scale=1):
                     prompt_language = gr.Dropdown(
                         choices=language_choices,
                         label="提示文本语言",
@@ -289,106 +289,108 @@ def create_tts_app():
                         value="中文",
                         scale=3
                     )
-                
-                with gr.Row():
-                    cut_method = gr.Dropdown(
-                        choices=cut_method_choices,
-                        label="文本切割方式",
-                        value="不切",
-                        scale=3
-                    )
+                with gr.Accordion("更多TTS设置", open=False):
+                    with gr.Row():
+                        cut_method = gr.Dropdown(
+                            choices=cut_method_choices,
+                            label="文本切割方式",
+                            value="不切",
+                            scale=3
+                        )
+                        
+                        top_k = gr.Slider(
+                            minimum=1,
+                            maximum=100,
+                            value=20,
+                            step=1,
+                            label="采样top-k",
+                            scale=3
+                        )
+                        
+                        top_p = gr.Slider(
+                            minimum=0.1,
+                            maximum=1.0,
+                            value=0.6,
+                            step=0.1,
+                            label="采样top-p",
+                            scale=3
+                        )
+                        
+                        temperature = gr.Slider(
+                            minimum=0.1,
+                            maximum=2.0,
+                            value=0.6,
+                            step=0.1,
+                            label="采样温度",
+                            scale=3
+                        )
                     
-                    top_k = gr.Slider(
-                        minimum=1,
-                        maximum=100,
-                        value=20,
-                        step=1,
-                        label="采样top-k",
-                        scale=3
-                    )
+                    with gr.Row():
+                        use_ref_audio = gr.Checkbox(
+                            label="无参考模式",
+                            value=False,
+                            info="是否不使用参考音频特征",
+                            scale=2
+                        )
+                        
+                        speed = gr.Slider(
+                            minimum=0.5,
+                            maximum=2.0,
+                            value=1.0,
+                            step=0.1,
+                            label="语速",
+                            scale=2
+                        )
+                        
+                        use_cache = gr.Checkbox(
+                            label="冻结缓存",
+                            value=False,
+                            info="是否使用缓存加速生成",
+                            scale=2
+                        )
+                        
+                        extra_ref_files = gr.File(
+                            label="额外参考文件",
+                            file_count="multiple",
+                            visible=False,
+                            scale=2
+                        )
                     
-                    top_p = gr.Slider(
-                        minimum=0.1,
-                        maximum=1.0,
-                        value=0.6,
-                        step=0.1,
-                        label="采样top-p",
-                        scale=3
-                    )
-                    
-                    temperature = gr.Slider(
-                        minimum=0.1,
-                        maximum=2.0,
-                        value=0.6,
-                        step=0.1,
-                        label="采样温度",
-                        scale=3
-                    )
-                
-                with gr.Row():
-                    use_ref_audio = gr.Checkbox(
-                        label="无参考模式",
-                        value=False,
-                        info="是否不使用参考音频特征",
-                        scale=2
-                    )
-                    
-                    speed = gr.Slider(
-                        minimum=0.5,
-                        maximum=2.0,
-                        value=1.0,
-                        step=0.1,
-                        label="语速",
-                        scale=2
-                    )
-                    
-                    use_cache = gr.Checkbox(
-                        label="冻结缓存",
-                        value=False,
-                        info="是否使用缓存加速生成",
-                        scale=2
-                    )
-                    
-                    extra_ref_files = gr.File(
-                        label="额外参考文件",
-                        file_count="multiple",
-                        visible=False,
-                        scale=2
-                    )
-                
-                with gr.Row():
-                    cfm_steps = gr.Slider(
-                        minimum=1,
-                        maximum=20,
-                        value=8,
-                        step=1,
-                        label="CFM采样步数",
-                        scale=2
-                    )
-                    
-                    super_resolution = gr.Checkbox(
-                        label="超分辨率",
-                        value=False,
-                        info="是否启用音频超分辨率",
-                        scale=2
-                    )
-                    
-                    pause_duration = gr.Slider(
-                        minimum=0.1,
-                        maximum=1.0,
-                        value=0.3,
-                        step=0.1,
-                        label="句子间停顿时间(秒)",
-                        scale=2
-                    )
+                    with gr.Row():
+                        cfm_steps = gr.Slider(
+                            minimum=1,
+                            maximum=20,
+                            value=8,
+                            step=1,
+                            label="CFM采样步数",
+                            scale=2
+                        )
+                        
+                        super_resolution = gr.Checkbox(
+                            label="超分辨率",
+                            value=False,
+                            info="是否启用音频超分辨率",
+                            scale=2
+                        )
+                        
+                        pause_duration = gr.Slider(
+                            minimum=0.1,
+                            maximum=1.0,
+                            value=0.3,
+                            step=0.1,
+                            label="句子间停顿时间(秒)",
+                            scale=2
+                        )
                 
                 # 提交按钮和输出区域
-                with gr.Row():
+                with gr.Row(scale=1):
                     submit_btn = gr.Button("开始合成", variant="primary", scale=2)
             # 输出区域
             with gr.Column(scale=1):
-                audio_output = gr.Audio(label="生成音频", type="numpy", scale=12)
-                json_output = gr.JSON(label="生成信息" )
+                with gr.Row(scale=2):
+                    audio_output = gr.Audio(label="生成音频", type="numpy", scale=12)
+                with gr.Row(scale=1):
+                    json_output = gr.JSON(label="生成信息" )
             
         # 刷新按钮的事件绑定
         def update_model_count():
