@@ -36,7 +36,7 @@ def get_tfe_file_path(opt_dir:str):
     返回:
     tfe文件路径
     """
-    tfe_file_path = os.path.join(opt_dir, "2-name2text.json")
+    tfe_file_path = os.path.join(opt_dir, "2-name2text.txt")
     return tfe_file_path
 
 

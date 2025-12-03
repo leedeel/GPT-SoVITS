@@ -28,10 +28,10 @@ def train_dataset(
     
     # 1.文本分词特征提取
     print(f"1.文本分词特征提取")
-    tfe_process_file_path = train_tfe(version=version,
-                                      opt_dir=opt_dir,
-                                      train_dataset_list=train_dataset_list,
-                                      language=language)
+    train_tfe(version=version,
+              opt_dir=opt_dir,
+              train_dataset_list=train_dataset_list,
+              language=language)
     print(f"1.文本分词特征提取完成")
     
     # 2.语音自监督特征提取

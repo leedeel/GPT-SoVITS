@@ -3,7 +3,6 @@ from transformers import AutoModelForMaskedLM, AutoTokenizer
 from api_interface.config import (is_half,bert_path)
 from GPT_SoVITS.text.cleaner import clean_text
 import torch
-import json
 from api_interface.dataset.common import get_device,get_bert_dir,save_pth,get_tfe_file_path
 
 language_v1_to_language_v2 = {
@@ -145,7 +144,10 @@ def train_tfe(version:str,
                                      tokenizer=tokenizer)
         if process_result is not None:
             result_list.append(process_result)
+    opt = []
+    for name, phones, word2ph, norm_text in result_list:
+        opt.append("%s\t%s\t%s\t%s" % (name, phones, word2ph, norm_text))
     with open(tfe_process_file_path, "w", encoding="utf8") as f:
-        f.write(json.dumps(result_list, ensure_ascii=False, indent=4))
+        f.write("\n".join(opt) + "\n")
     return tfe_process_file_path
     
