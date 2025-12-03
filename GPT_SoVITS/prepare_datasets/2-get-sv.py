@@ -26,8 +26,8 @@ sys.path.append(f"{now_dir}/GPT_SoVITS/eres2net")
 from tools.my_utils import clean_path
 from time import time as ttime
 import shutil
-from ERes2NetV2 import ERes2NetV2
-import kaldi as Kaldi
+from GPT_SoVITS.eres2net.ERes2NetV2 import ERes2NetV2
+import GPT_SoVITS.eres2net.kaldi as Kaldi
 
 
 def my_save(fea, path):  #####fix issue: torch.save doesn't support chinese path

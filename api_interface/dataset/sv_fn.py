@@ -3,8 +3,8 @@ import os
 import torchaudio
 from api_interface.config import (is_half,sv_path)
 from api_interface.dataset.common import (get_device,save_pth,get_sv_cn_dir,get_wav32dir)
-from ERes2NetV2 import ERes2NetV2
-import kaldi as Kaldi
+from GPT_SoVITS.eres2net.ERes2NetV2 import ERes2NetV2
+import GPT_SoVITS.eres2net.kaldi as Kaldi
 
 
 maxx = 0.95
