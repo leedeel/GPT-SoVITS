@@ -123,7 +123,7 @@ def train_tfe(version:str,
             text = dataset.get("text")
             wav_path = dataset.get("wav_path")
             if language in language_v1_to_language_v2.keys():
-                todo.append([wav_path, text, language_v1_to_language_v2.get(language, language)])
+                todo_list.append([wav_path, text, language_v1_to_language_v2.get(language, language)])
             else:
                 print(f"[Waring] The {language = } of {wav_path} is not supported for training.")
         except Exception as e:
