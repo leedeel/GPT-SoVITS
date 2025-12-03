@@ -3,7 +3,6 @@ import json
 from api_interface.config import (
     exp_root,
     python_exec,
-    tmp,
     SoVITS_weight_version2root,
     is_half,
     pretrained_sovits_name,
@@ -11,6 +10,7 @@ from api_interface.config import (
 )
 from tools.my_utils import check_details, check_for_existance
 from subprocess import Popen
+from api_interface.model_training.common import get_tmp_dir
 
 
 gpus = "-".join(map(str, GPU_INDEX))
@@ -87,7 +87,8 @@ def train_sovits(
     data["save_weight_dir"] = SoVITS_weight_version2root[version]
     data["name"] = exp_name
     data["version"] = version
-    tmp_config_path = "%s/tmp_s2.json" % tmp
+    tmp_dir = get_tmp_dir()
+    tmp_config_path = "%s/tmp_s2.json" % tmp_dir
     with open(tmp_config_path, "w") as f:
         f.write(json.dumps(data))
     if version in ["v1", "v2", "v2Pro", "v2ProPlus"]:

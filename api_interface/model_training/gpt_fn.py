@@ -2,7 +2,6 @@ from api_interface.config import (
     infer_device,
     exp_root,
     python_exec,
-    tmp,
     GPT_weight_version2root,
     is_half,
     pretrained_gpt_name,
@@ -12,6 +11,7 @@ from tools.my_utils import check_details, check_for_existance
 from subprocess import Popen
 import yaml
 import os
+from api_interface.model_training.common import get_tmp_dir
 
 gpus = "-".join(map(str, GPU_INDEX))
 default_gpu_numbers = infer_device.index
@@ -90,7 +90,8 @@ def train_gpt(
     gpus = "-".join(map(str, GPU_INDEX))
     os.environ["_CUDA_VISIBLE_DEVICES"] = str(fix_gpu_numbers(gpus.replace("-", ",")))
     os.environ["hz"] = "25hz"
-    tmp_config_path = "%s/tmp_s1.yaml" % tmp
+    tmp_dir = get_tmp_dir()
+    tmp_config_path = "%s/tmp_s1.yaml" % tmp_dir
     with open(tmp_config_path, "w") as f:
         f.write(yaml.dump(data, default_flow_style=False))
     # cmd = '"%s" GPT_SoVITS/s1_train.py --config_file "%s" --train_semantic_path "%s/6-name2semantic.tsv" --train_phoneme_path "%s/2-name2text.txt" --output_dir "%s/logs_s1"'%(python_exec,tmp_config_path,s1_dir,s1_dir,s1_dir)
