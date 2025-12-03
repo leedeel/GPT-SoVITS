@@ -24,9 +24,11 @@ def process_json_with_audio(json_data:str, audio_files:list[gr.Audio])->list[dic
         for item in items:
             if 'text' in item:
                 text = item['text']
-                audio_path = item.get('wav_path', '无音频')
-                results.append(f"文本: {text}, 音频: {audio_path}")
-        
+                wav_path = item.get('wav_path', '无音频')
+                results.append({
+                    "text": text,
+                    "wav_path": wav_path
+                })
         return results
     except json.JSONDecodeError:
         return []
