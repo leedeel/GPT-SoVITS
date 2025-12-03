@@ -190,135 +190,239 @@ def normalize_audio(audio_data: np.ndarray) -> np.ndarray:
     return audio_data
 
 
-# ===== 创建纯 API 接口 =====
 
 def create_tts_app():
     """创建 TTS API 接口"""
-    #
-    
     # 定义语言选项
     language_choices = ["中文", "英文", "日文", "中英混合", "日英混合", "多语种混合"]
     cut_method_choices = ["不切", "凑四句一切", "凑50字一切", "按中文句号。切", "按英文句号.切", "按标点符号切"]
     
-    # 创建接口
+    # 初始化模型列表
     SoVITS_names, GPT_names = get_weights_names()
-    tts_interface = gr.Interface(
-        fn=get_tts_wav_api,
-        inputs=[
-            gr.Dropdown(
+    
+    # 刷新模型列表的函数
+    def refresh_models():
+        """刷新模型列表"""
+        nonlocal SoVITS_names, GPT_names
+        SoVITS_names, GPT_names = get_weights_names()
+        
+        # 返回更新后的下拉菜单选项
+        return [
+            gr.Dropdown.update(
+                choices=SoVITS_names, 
+                value=SoVITS_names[0] if SoVITS_names else None
+            ),
+            gr.Dropdown.update(
+                choices=GPT_names, 
+                value=GPT_names[0] if GPT_names else None
+            )
+        ]
+    
+    # 使用 Blocks 替代 Interface，以获得更大的布局灵活性
+    with gr.Blocks(title="GPT-SoVITS TTS API 服务") as tts_interface:
+        gr.Markdown("# GPT-SoVITS TTS API 服务")
+        gr.Markdown("文本到语音合成 API 接口，支持多语言和声音克隆")
+        
+        # 模型选择行
+        with gr.Row():
+            # SoVITS 模型选择
+            sovits_dropdown = gr.Dropdown(
                 label=i18n("SoVITS模型列表"),
                 choices=SoVITS_names,
-                value=SoVITS_names[0],
+                value=SoVITS_names[0] if SoVITS_names else None,
                 interactive=True,
-                scale=14,
-            ),
-            gr.Dropdown(
+                scale=6,
+                filterable=True,
+                info="选择音色模型"
+            )
+            
+            # GPT 模型选择
+            gpt_dropdown = gr.Dropdown(
                 label=i18n("GPT模型列表"),
                 choices=GPT_names,
-                value=GPT_names[0],
+                value=GPT_names[0] if GPT_names else None,
                 interactive=True,
-                scale=14,
-            ),
-            gr.Audio(
+                scale=6,
+                filterable=True,
+                info="选择文本模型"
+            )
+            
+            # 刷新按钮
+            with gr.Column(scale=1):
+                refresh_btn = gr.Button(
+                    "🔄 刷新模型",
+                    variant="secondary",
+                    size="sm",
+                    min_width=80
+                )
+                # 显示模型数量
+                model_count_info = gr.Markdown(
+                    f"SoVITS: {len(SoVITS_names)}个 | GPT: {len(GPT_names)}个"
+                )
+        
+        # 其他输入参数
+        with gr.Row():
+            ref_audio = gr.Audio(
                 label="参考音频",
-                type="filepath"
-            ),
-            gr.Textbox(
+                type="filepath",
+                scale=6
+            )
+            
+            prompt_text = gr.Textbox(
                 label="提示文本",
                 placeholder="请输入参考音频对应的文本...",
-            ),
-            gr.Dropdown(
+                scale=6
+            )
+        
+        with gr.Row():
+            prompt_language = gr.Dropdown(
                 choices=language_choices,
                 label="提示文本语言",
-                value="中文"
-            ),
-            gr.Textbox(
+                value="中文",
+                scale=3
+            )
+            
+            text_input = gr.Textbox(
                 label="目标文本", 
                 placeholder="请输入要合成的文本...",
                 lines=3,
-            ),
-            gr.Dropdown(
+                scale=6
+            )
+            
+            text_language = gr.Dropdown(
                 choices=language_choices,
                 label="目标文本语言", 
-                value="中文"
-            ),
-            gr.Dropdown(
+                value="中文",
+                scale=3
+            )
+        
+        with gr.Row():
+            cut_method = gr.Dropdown(
                 choices=cut_method_choices,
                 label="文本切割方式",
                 value="不切",
-            ),
-            gr.Slider(
+                scale=3
+            )
+            
+            top_k = gr.Slider(
                 minimum=1,
                 maximum=100,
                 value=20,
                 step=1,
-                label="采样时的top-k参数"
-            ),
-            gr.Slider(
+                label="采样top-k",
+                scale=3
+            )
+            
+            top_p = gr.Slider(
                 minimum=0.1,
                 maximum=1.0,
                 value=0.6,
                 step=0.1,
-                label="采样时的top-p参数",
-            ),
-            gr.Slider(
+                label="采样top-p",
+                scale=3
+            )
+            
+            temperature = gr.Slider(
                 minimum=0.1,
                 maximum=2.0,
                 value=0.6,
                 step=0.1,
                 label="采样温度",
-            ),
-            gr.Checkbox(
+                scale=3
+            )
+        
+        with gr.Row():
+            use_ref_audio = gr.Checkbox(
                 label="无参考模式",
                 value=False,
-                info="是否不使用参考音频特征"
-            ),
-            gr.Slider(
+                info="是否不使用参考音频特征",
+                scale=2
+            )
+            
+            speed = gr.Slider(
                 minimum=0.5,
                 maximum=2.0,
                 value=1.0,
                 step=0.1,
                 label="语速",
-            ),
-            gr.Checkbox(
+                scale=2
+            )
+            
+            use_cache = gr.Checkbox(
                 label="冻结缓存",
                 value=False,
-                info="是否使用缓存加速生成"
-            ),
-            gr.File(
+                info="是否使用缓存加速生成",
+                scale=2
+            )
+            
+            extra_ref_files = gr.File(
                 label="额外参考文件",
                 file_count="multiple",
-                visible=False
-            ),
-            gr.Slider(
+                visible=False,
+                scale=2
+            )
+        
+        with gr.Row():
+            cfm_steps = gr.Slider(
                 minimum=1,
                 maximum=20,
                 value=8,
                 step=1,
                 label="CFM采样步数",
-            ),
-            gr.Checkbox(
+                scale=2
+            )
+            
+            super_resolution = gr.Checkbox(
                 label="超分辨率",
                 value=False,
-                info="是否启用音频超分辨率"
-            ),
-            gr.Slider(
+                info="是否启用音频超分辨率",
+                scale=2
+            )
+            
+            pause_duration = gr.Slider(
                 minimum=0.1,
                 maximum=1.0,
                 value=0.3,
                 step=0.1,
-                label="句子间的停顿时间（秒）",
+                label="句子间停顿时间(秒)",
+                scale=2
             )
-        ],
-        outputs=[
-            gr.Audio(label="生成音频", scale=12, type="numpy"),
-            gr.JSON(label="生成信息")
-        ],
-        title="GPT-SoVITS TTS API 服务",
-        description="文本到语音合成 API 接口，支持多语言和声音",
-        api_name="tts_generate"
-    )
-    
+        
+        # 提交按钮和输出区域
+        with gr.Row():
+            submit_btn = gr.Button("开始合成", variant="primary", scale=2)
+        
+        with gr.Row():
+            audio_output = gr.Audio(label="生成音频", type="numpy", scale=12)
+            json_output = gr.JSON(label="生成信息" )
+        
+        # 刷新按钮的事件绑定
+        def update_model_count():
+            """更新模型数量显示"""
+            return f"SoVITS: {len(SoVITS_names)}个 | GPT: {len(GPT_names)}个"
+        
+        refresh_btn.click(
+            fn=refresh_models,
+            inputs=[],
+            outputs=[sovits_dropdown, gpt_dropdown]
+        ).then(
+            fn=update_model_count,
+            inputs=[],
+            outputs=[model_count_info]
+        )
+        submit_btn.click(
+            fn=get_tts_wav_api,
+            inputs=[
+                sovits_dropdown, gpt_dropdown, ref_audio, prompt_text,
+                prompt_language, text_input, text_language, cut_method,
+                top_k, top_p, temperature, use_ref_audio,
+                speed, use_cache, extra_ref_files, cfm_steps,
+                super_resolution, pause_duration
+            ],
+            outputs=[audio_output, json_output],
+            api_name="tts_generate"
+        )
+        
     return tts_interface
 
 if __name__ == "__main__":
