@@ -21,7 +21,7 @@ def create_main_app():
     
     model_training_module = gr.TabbedInterface(
         [dataset_interface, check_sovits_train_status_interface, sovits_training_interface, check_gpt_train_status_interface, gpt_training_interface],
-        ["数据集管理", "SoVITS模型训练状态检查","SoVITS模型训练", "GPT模型训练状态检查","GPT模型训练"],
+        ["数据集处理", "SoVITS模型训练状态检查","SoVITS模型训练", "GPT模型训练状态检查","GPT模型训练"],
         title="模型训练"
     )
     

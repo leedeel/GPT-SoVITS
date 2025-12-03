@@ -15,7 +15,6 @@ def create_model_app():
         inputs=[],
         outputs=gr.JSON(),
         api_name="model_list",
-        title="GPT-SoVITS模型API服务"
     )
     
     return model_interface

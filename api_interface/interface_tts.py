@@ -212,7 +212,6 @@ def create_tts_app():
     
     # 使用 Blocks 替代 Interface，以获得更大的布局灵活性
     with gr.Blocks(title="GPT-SoVITS TTS API 服务") as tts_interface:
-        gr.Markdown("# GPT-SoVITS TTS API 服务")
         gr.Markdown("文本到语音合成 API 接口，支持多语言和声音克隆")
         with gr.Row():
             # 输入区域
