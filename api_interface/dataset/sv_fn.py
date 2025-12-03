@@ -85,5 +85,5 @@ def train_sv(opt_dir:str,
                     sv=sv,
                     sv_cn_dir=sv_cn_dir,
                     wav32dir=wav32dir)
-        except:
-            print(f"{dataset}加入训练任务失败")
+        except Exception as e:
+            print(f"{dataset}加入训练任务失败,原因:{e}")

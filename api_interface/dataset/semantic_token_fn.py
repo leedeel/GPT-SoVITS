@@ -91,7 +91,7 @@ def train_semantic_token(opt_dir:str,
                                vq_model=vq_model)
             result_list.append(semantic)
         except Exception as e:
-            print(f"语义token提取失败:{dataset}")
+            print(f"语义token提取失败:{dataset},{e}")
     
     with open(semantic_path, "w", encoding="utf8") as f:
         f.write("\n".join(result_list))

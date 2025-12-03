@@ -88,8 +88,8 @@ def train_ssl(opt_dir:str,
                     nan_fails=nan_fails,
                     model=model,
                     device=device)
-        except:
-            print(f"{dataset}加入训练任务失败")
+        except Exception as e:
+            print(f"{dataset}加入训练任务失败,原因:{e}")
             
     if len(nan_fails) > 0 and is_half == True:
         is_half = False
@@ -103,5 +103,5 @@ def train_ssl(opt_dir:str,
                         nan_fails=nan_fails,
                         model=model,
                         device=device)
-            except:
-                print(wav_name)
+            except Exception as e:
+                print(f"{wav}加入训练任务失败,原因:{e}")

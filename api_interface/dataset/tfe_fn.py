@@ -127,8 +127,8 @@ def train_tfe(version:str,
                 todo.append([wav_path, text, language_v1_to_language_v2.get(language, language)])
             else:
                 print(f"[Waring] The {language = } of {wav_path} is not supported for training.")
-        except:
-            print(f"{dataset}加入训练任务失败")
+        except Exception as e:
+            print(f"{dataset}加入训练任务失败: {e}")
     
     bert_dir = get_bert_dir(opt_dir=opt_dir)
     result_list = []
