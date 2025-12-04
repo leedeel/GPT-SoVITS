@@ -30,6 +30,8 @@ def get_urv5_file_name_opt_dir(root_dir:str, exp_name:str, file_name:str):
     uvr5_dir存储路径
     """
     uvr5_dir = os.path.join(root_dir, exp_name, f"uvr5_{file_name}")
+    if os.path.exists(uvr5_dir):
+        os.removedirs(uvr5_dir)
     os.makedirs(uvr5_dir, exist_ok=True)
     return uvr5_dir
 
