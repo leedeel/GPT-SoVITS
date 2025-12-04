@@ -20,18 +20,18 @@ def get_tmp_dir():
     return tmp
 
 
-def get_vrv5_file_name_opt_dir(root_dir:str, exp_name:str, file_name:str):    
+def get_urv5_file_name_opt_dir(root_dir:str, exp_name:str, file_name:str):    
     """
     获取vrv5存储路径
     参数:
     root_dir: 根目录
     exp_name: 实验名称
     返回:
-    vrv5存储路径
+    uvr5_dir存储路径
     """
-    vrv5_dir = os.path.join(root_dir, exp_name, f"vrv5_{file_name}")
-    os.makedirs(vrv5_dir, exist_ok=True)
-    return vrv5_dir
+    uvr5_dir = os.path.join(root_dir, exp_name, f"uvr5_{file_name}")
+    os.makedirs(uvr5_dir, exist_ok=True)
+    return uvr5_dir
 
 
 def find_files_with_prefix(folder_path, prefix):

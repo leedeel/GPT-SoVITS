@@ -12,7 +12,7 @@ from tools.uvr5.bsroformer import Roformer_Loader
 from tools.uvr5.mdxnet import MDXNetDereverb
 from tools.uvr5.vr import AudioPre, AudioPreDeEcho
 from api_interface.config import (is_half,exp_root)
-from api_interface.uvr.common import (get_device,get_vrv5_file_name_opt_dir,get_tmp_dir,find_files_with_prefix)
+from api_interface.uvr.common import (get_device,get_urv5_file_name_opt_dir,get_tmp_dir,find_files_with_prefix)
 
 WEIGHT_URV5_ROOT = "tools/uvr5/uvr5_weights"
 
@@ -119,10 +119,10 @@ def uvr(exp_name,
         infos = []
         for file_path in paths:
             file_name = os.path.basename(file_path)
-            vrv5_file_name_opt_dir = get_vrv5_file_name_opt_dir(root_dir=exp_root,exp_name=exp_name,file_name=file_name)
+            urv5_file_name_opt_dir = get_urv5_file_name_opt_dir(root_dir=exp_root,exp_name=exp_name,file_name=file_name)
             # 在vrv5_file_name_opt_dir中查找vocal.wav和ins.wav
-            vocal_matchs = find_files_with_prefix(folder_path=vrv5_file_name_opt_dir, prefix=VOCAL_PREFIX)
-            ins_matchs = find_files_with_prefix(folder_path=vrv5_file_name_opt_dir, prefix=INS_PREFIX)
+            vocal_matchs = find_files_with_prefix(folder_path=urv5_file_name_opt_dir, prefix=VOCAL_PREFIX)
+            ins_matchs = find_files_with_prefix(folder_path=urv5_file_name_opt_dir, prefix=INS_PREFIX)
             if len(vocal_matchs) > 0 and len(ins_matchs) > 0:
                 infos.append({
                     "name": file_name,
@@ -145,14 +145,14 @@ def uvr(exp_name,
             print(f"开始处理文件:{file_path}")
             process_uvr5(file_path=file_path,
                          file_name=file_name,
-                         save_root_vocal=vrv5_file_name_opt_dir,
-                         save_root_ins=vrv5_file_name_opt_dir,
+                         save_root_vocal=urv5_file_name_opt_dir,
+                         save_root_ins=urv5_file_name_opt_dir,
                          pre_fun=pre_fun,
                          format0=format0,
                          is_hp3=is_hp3)
             print(f"处理文件:{file_path}完成")
-            vocal_matchs = find_files_with_prefix(folder_path=vrv5_file_name_opt_dir, prefix=VOCAL_PREFIX)
-            ins_matchs = find_files_with_prefix(folder_path=vrv5_file_name_opt_dir, prefix=INS_PREFIX)
+            vocal_matchs = find_files_with_prefix(folder_path=urv5_file_name_opt_dir, prefix=VOCAL_PREFIX)
+            ins_matchs = find_files_with_prefix(folder_path=urv5_file_name_opt_dir, prefix=INS_PREFIX)
             if len(vocal_matchs) > 0 and len(ins_matchs) > 0:
                 infos.append({
                     "name": file_name,
