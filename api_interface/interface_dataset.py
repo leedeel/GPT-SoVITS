@@ -46,6 +46,7 @@ def train_dataset_api(version:str,
     返回:
     数据集管理结果
     """
+    train_dataset_list = None
     try:
         train_dataset_list = process_json_with_audio(json_data=audio_json, audio_files=audio_files)
         if len(train_dataset_list) == 0:
