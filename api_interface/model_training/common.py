@@ -2,7 +2,7 @@ import os
 
 def get_tmp_dir():
     now_dir = os.getcwd()
-    tmp = os.path.join(now_dir, "TEMP")
+    tmp = os.path.join(now_dir, "TEMP","model_training")
     os.makedirs(tmp, exist_ok=True)
     return tmp
 
