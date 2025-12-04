@@ -102,12 +102,18 @@ def train_gpt(
     p_train_GPT = Popen(cmd, shell=True)
     p_train_GPT.wait()
     p_train_GPT = None
-    release_model()
+    cleanup_memory()
     check_memory_usage()
     return {"code":0, "msg": "GPT模型训练完成"}
 
-def release_model():
+def cleanup_memory():
+    """强制清理内存"""
+    gc.collect()  # 垃圾回收
     if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-        torch.cuda.synchronize()
-    gc.collect()
+        torch.cuda.empty_cache()  # 清理GPU缓存
+        torch.cuda.reset_max_memory_allocated()  # 重置内存统计
+    try:
+        import torch
+        torch.cuda.ipc_collect()  # 收集共享内存
+    except:
+        pass
