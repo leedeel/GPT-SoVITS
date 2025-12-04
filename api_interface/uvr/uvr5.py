@@ -121,19 +121,8 @@ def uvr(exp_name,
             file_name = os.path.basename(file_path)
             urv5_file_name_opt_dir = get_urv5_file_name_opt_dir(root_dir=exp_root,exp_name=exp_name,file_name=file_name)
             # 在vrv5_file_name_opt_dir中查找vocal.wav和ins.wav
-            vocal_matchs = find_files_with_prefix(folder_path=urv5_file_name_opt_dir, prefix=VOCAL_PREFIX)
-            ins_matchs = find_files_with_prefix(folder_path=urv5_file_name_opt_dir, prefix=INS_PREFIX)
-            if len(vocal_matchs) > 0 and len(ins_matchs) > 0:
-                infos.append({
-                    "name": file_name,
-                    "path": file_path,
-                    "vocal_path": vocal_matchs[0],
-                    "ins_path": ins_matchs[0],
-                    "status": "success",
-                    "message": "文件已存在"
-                })
-                continue
-            
+            os.removedirs(urv5_file_name_opt_dir)
+            os.makedirs(urv5_file_name_opt_dir, exist_ok=True)
             if os.path.isfile(file_path) == False:
                 infos.append({
                     "name": file_name,
