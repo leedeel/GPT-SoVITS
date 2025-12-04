@@ -87,11 +87,10 @@ def process_uvr5(file_path,
             tmp_path = "%s/%s.reformatted.wav" % (get_tmp_dir(),file_name)
             os.system(f'ffmpeg -i "{file_path}" -vn -acodec pcm_s16le -ac 2 -ar 44100 "{tmp_path}" -y')
             pre_fun._path_audio_(tmp_path, save_root_ins, save_root_vocal, format0, is_hp3)
+            if tmp_path and os.path.exists(tmp_path):
+                os.remove(tmp_path)
     except:
         traceback.print_exc()
-    finally:
-        if tmp_path and os.path.exists(tmp_path):
-            os.remove(tmp_path)
     
 
 
