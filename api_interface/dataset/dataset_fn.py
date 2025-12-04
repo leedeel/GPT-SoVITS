@@ -7,17 +7,16 @@ from api_interface.dataset.sv_fn import train_sv
 from api_interface.dataset.semantic_token_fn import train_semantic_token
 from api_interface.dataset.common import check_memory_usage
 import gc
-import torch
 
 
 def cleanup_memory():
     """强制清理内存"""
+    import torch
     gc.collect()  # 垃圾回收
     if torch.cuda.is_available():
         torch.cuda.empty_cache()  # 清理GPU缓存
         torch.cuda.reset_max_memory_allocated()  # 重置内存统计
     try:
-        import torch
         torch.cuda.ipc_collect()  # 收集共享内存
     except:
         pass

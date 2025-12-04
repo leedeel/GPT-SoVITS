@@ -12,7 +12,6 @@ from subprocess import Popen
 import yaml
 import os
 import gc
-import torch
 from api_interface.model_training.common import get_tmp_dir,check_memory_usage
 
 gpus = "-".join(map(str, GPU_INDEX))
@@ -108,12 +107,12 @@ def train_gpt(
 
 def cleanup_memory():
     """强制清理内存"""
+    import torch
     gc.collect()  # 垃圾回收
     if torch.cuda.is_available():
         torch.cuda.empty_cache()  # 清理GPU缓存
         torch.cuda.reset_max_memory_allocated()  # 重置内存统计
     try:
-        import torch
         torch.cuda.ipc_collect()  # 收集共享内存
     except:
         pass

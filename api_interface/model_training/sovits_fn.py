@@ -1,7 +1,6 @@
 import os
 import json
 import gc
-import torch
 from api_interface.config import (
     exp_root,
     python_exec,
@@ -108,11 +107,11 @@ def train_sovits(
 def cleanup_memory():
     """强制清理内存"""
     gc.collect()  # 垃圾回收
+    import torch
     if torch.cuda.is_available():
         torch.cuda.empty_cache()  # 清理GPU缓存
         torch.cuda.reset_max_memory_allocated()  # 重置内存统计
     try:
-        import torch
         torch.cuda.ipc_collect()  # 收集共享内存
     except:
         pass
